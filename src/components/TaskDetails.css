@@ -1,0 +1,229 @@
+.task-details {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%);
+  padding: 2rem;
+}
+
+.task-details-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.task-details-header h1 {
+  color: #333;
+  margin: 0;
+  font-size: 2rem;
+}
+
+.task-details-content {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.task-main-info {
+  padding: 2rem;
+  border-bottom: 1px solid #eee;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.task-header h2 {
+  color: #333;
+  margin: 0;
+  flex: 1;
+  font-size: 1.8rem;
+  word-break: break-word;
+}
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.pill-to_do { background: #fff3e0; color: #e65100; }
+.pill-in_progress { background: #e3f2fd; color: #0d47a1; }
+.pill-done { background: #e8f5e9; color: #1b5e20; }
+
+.task-description {
+  margin-top: 1.5rem;
+}
+
+.task-description h3 {
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.task-description p {
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.task-meta-info {
+  padding: 2rem;
+  border-bottom: 1px solid #eee;
+}
+
+.chips-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7fafc;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.user-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #cbd5e0;
+  color: #2d3748;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.user-name { font-size: 13px; }
+
+.task-meta-info h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.meta-item label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.meta-item span {
+  color: #666;
+  font-size: 1rem;
+}
+
+.task-actions {
+  padding: 2rem;
+}
+
+.task-actions h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.status-update-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.status-select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  min-width: 150px;
+}
+
+.updating-text {
+  color: #666;
+  font-style: italic;
+}
+
+.status-info {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+}
+
+.status-info p {
+  margin: 0 0 0.5rem 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.status-info p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .task-details {
+    padding: 1rem;
+  }
+  
+  .task-details-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .task-details-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .task-main-info,
+  .task-meta-info,
+  .task-actions {
+    padding: 1.5rem;
+  }
+  
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .task-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .meta-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .status-update-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .status-select {
+    width: 100%;
+  }
+}

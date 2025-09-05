@@ -1,3 +1,17 @@
+## Environment
+
+Configure API base URL via Vite env:
+
+```
+VITE_API_URL=/api
+```
+
+Or set to your deployed backend:
+
+```
+VITE_API_URL=https://your-domain.com/api
+```
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

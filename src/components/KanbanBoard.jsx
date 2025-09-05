@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './KanbanBoard.css';
 import AssignModal from './AssignModal';
 
@@ -10,10 +10,11 @@ const STATUSES = ['TO_DO', 'IN_PROGRESS', 'DONE'];
 const KanbanBoard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [projectFilter, setProjectFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState(''); // stores projectId
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTask, setNewTask] = useState({ heading: '', description: '' });
   const [users, setUsers] = useState([]);
@@ -22,9 +23,12 @@ const KanbanBoard = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [modalTaskId, setModalTaskId] = useState('');
   const [modalUserId, setModalUserId] = useState('');
+  const [projects, setProjects] = useState([]); // fetched from API
+  const [createProjectId, setCreateProjectId] = useState('');
 
   useEffect(() => {
     fetchTasks();
+    fetchProjects();
     if (user?.role === 'admin') {
       fetchUsers();
     } else {
@@ -33,9 +37,38 @@ const KanbanBoard = () => {
     }
   }, []);
 
-  const fetchTasks = async () => {
+  useEffect(() => {
+    // support query param project or projectId
+    const params = new URLSearchParams(location.search);
+    const qProjectId = params.get('projectId');
+    const qProjectTitle = params.get('project');
+    if (qProjectId) {
+      setProjectFilter(qProjectId);
+      fetchTasks(qProjectId);
+      return;
+    }
+    if (qProjectTitle && projects.length) {
+      const match = projects.find(p => p.title === qProjectTitle);
+      if (match) {
+        setProjectFilter(match.id);
+        fetchTasks(match.id);
+        return;
+      }
+    }
+    if (projectFilter !== '') {
+      fetchTasks(projectFilter);
+    } else {
+      fetchTasks();
+    }
+  }, [projectFilter, location.search, projects]);
+
+  const fetchTasks = async (projectId = '') => {
     try {
-      const response = await axios.get('/tasks');
+      const params = new URLSearchParams();
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      const response = await api.get(`/tasks${params.toString() ? `?${params.toString()}` : ''}`);
       setTasks(response.data.data || response.data);
     } catch (e) {
       setError('Failed to load tasks');
@@ -44,16 +77,23 @@ const KanbanBoard = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects');
+      setProjects(response.data.data || response.data);
+    } catch (e) {}
+  };
+
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/auth/users');
+      const response = await api.get('/auth/users');
       setUsers(response.data.data || response.data);
     } catch {}
   };
 
   const fetchTaskUsers = async () => {
     try {
-      const response = await axios.get('/tasks/users');
+      const response = await api.get('/tasks/users');
       setUsers(response.data.data || response.data);
     } catch {}
   };
@@ -66,15 +106,19 @@ const KanbanBoard = () => {
         heading: newTask.heading,
         description: newTask.description
       };
+      if (createProjectId) {
+        payload.projectId = createProjectId;
+      }
       if (user?.role === 'admin' && selectedUser) {
         payload.assignedTo = selectedUser;
       }
-      const response = await axios.post('/tasks', payload);
+      const response = await api.post('/tasks', payload);
       if (response.data.success) {
         const created = response.data.data || response.data;
         setTasks((prev) => [created, ...prev]);
         setNewTask({ heading: '', description: '' });
         setSelectedUser('');
+        setCreateProjectId('');
         setShowCreateForm(false);
       }
     } catch (e) {
@@ -84,14 +128,11 @@ const KanbanBoard = () => {
 
   const filteredTasks = useMemo(() => {
     let list = tasks;
-    if (projectFilter) {
-      list = list.filter((t) => t.project === projectFilter);
-    }
     if (assigneeFilter) {
       list = list.filter((t) => (t.assignedTo?._id || t.assignedTo) === assigneeFilter);
     }
     return list;
-  }, [tasks, projectFilter, assigneeFilter]);
+  }, [tasks, assigneeFilter]);
 
   const tasksByStatus = useMemo(() => {
     const result = { TO_DO: [], IN_PROGRESS: [], DONE: [] };
@@ -115,7 +156,7 @@ const KanbanBoard = () => {
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
     try {
-      const response = await axios.patch(`/tasks/${taskId}/status`, { status: newStatus });
+      const response = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
       if (response.data.success) {
         const updated = response.data.data || response.data;
         setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
@@ -127,7 +168,7 @@ const KanbanBoard = () => {
 
   const onChangeAssignee = async (taskId, assigneeId) => {
     try {
-      const response = await axios.patch(`/tasks/${taskId}/assignee`, { assigneeId });
+      const response = await api.patch(`/tasks/${taskId}/assignee`, { assigneeId });
       if (response.data.success) {
         const updated = response.data.data || response.data;
         setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
@@ -167,10 +208,28 @@ const KanbanBoard = () => {
       <header className="kanban-header">
         <div className="container">
           <div className="header-content">
-            <h1 className="dashboard-title">Kanban Board</h1>
+            <div className="header-left">
+              <button onClick={() => navigate('/')} className="back-button">
+                <span className="back-icon">←</span>
+                Back to Dashboard
+              </button>
+              <div className="header-title">
+                {/* <h1 className="dashboard-title">Kanban Board</h1> */}
+                <div className="breadcrumb">
+                  <span>Dashboard</span>
+                  <span className="separator">/</span>
+                  <span>Kanban</span>
+                </div>
+              </div>
+            </div>
             <div className="user-info">
-              <span className="user-welcome">{user.username} ({user.role})</span>
-              <button className="btn btn-secondary" onClick={() => navigate('/')}>Back to Dashboard</button>
+              <div className="user-avatar">
+                {(user.username || 'U').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="user-details">
+                <span className="user-welcome">{user.username}</span>
+                <span className="user-role">{user.role}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -179,29 +238,60 @@ const KanbanBoard = () => {
       <div className="dashboard-content">
         <div className="container">
           <div className="kanban-toolbar">
-            {/* <button
-              className="btn btn-primary"
-              onClick={() => setShowCreateForm(!showCreateForm)}
-            >
-              {showCreateForm ? 'Cancel' : 'Create New Task'}
-            </button> */}
-             {user?.role === 'admin' && (
-                <button className="btn btn-primary" onClick={openAssignModal}>Assign</button>
+            <div className="toolbar-left">
+              {user?.role === 'admin' && (
+                <button className="btn btn-primary" onClick={openAssignModal}>
+                  <span className="btn-icon">👥</span>
+                  Assign Tasks
+                </button>
               )}
-            <select
-              className="form-control"
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-            >
-              <option value="">All Assignees</option>
+              {/* <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowCreateForm(!showCreateForm)}
+              >
+                <span className="btn-icon">+</span>
+                {showCreateForm ? 'Cancel' : 'Create Task'}
+              </button> */}
+            </div>
+            
+            <div className="toolbar-filters">
+              <div className="filter-group">
+                <label className="filter-label">Project</label>
+                <select
+                  className="form-control filter-select"
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                >
+                  <option value="">All Projects</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>{project.title}</option>
+                  ))}
+                </select>
+              </div>
               
-              {users.map((u) => (
-                <option key={u._id} value={u._id}>{u.username}</option>
-              ))}
-            </select>
-            {(projectFilter || assigneeFilter) && (
-              <button className="btn" onClick={() => { setProjectFilter(''); setAssigneeFilter(''); }}>Clear</button>
-            )}
+              <div className="filter-group">
+                <label className="filter-label">Assignee</label>
+                <select
+                  className="form-control filter-select"
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                >
+                  <option value="">All Assignees</option>
+                  {users.map((u) => (
+                    <option key={u._id} value={u._id}>{u.username}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {(projectFilter || assigneeFilter) && (
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => { setProjectFilter(''); setAssigneeFilter(''); }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
           {showCreateForm && (
             <div className="card mb-4 fade-in" style={{ padding: '16px' }}>
@@ -227,6 +317,19 @@ const KanbanBoard = () => {
                     rows="3"
                     placeholder="Enter task description"
                   />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Project</label>
+                  <select
+                    value={createProjectId}
+                    onChange={(e) => setCreateProjectId(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="">Select a project...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>{project.title}</option>
+                    ))}
+                  </select>
                 </div>
                 {user?.role === 'admin' && (
                   <div className="form-group">
@@ -273,38 +376,69 @@ const KanbanBoard = () => {
                 onDrop={(e) => onDrop(e, status)}
               >
                 <div className="kanban-column-header">
-                  <h2 className="section-title">{status.replace('_', ' ')}</h2>
-                  <span className="badge-count">{tasksByStatus[status].length}</span>
+                  <div className="column-title-section">
+                    <div className={`status-indicator status-${status.toLowerCase().replace('_', '')}`}></div>
+                    <h2 className="section-title">{status.replace('_', ' ')}</h2>
+                  </div>
+                  <div className="column-stats">
+                    <span className="badge-count">{tasksByStatus[status].length}</span>
+                    <span className="column-subtitle">tasks</span>
+                  </div>
                 </div>
                 <div className="kanban-column-body">
-                  {tasksByStatus[status].map((task) => (
-                    <div
-                      key={task._id}
-                      className={`card task-card draggable kanban-card-compact status-${task.status.toLowerCase().replace('_', '')}`}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, task._id)}
-                      onClick={() => navigate(`/task/${task._id}`)}
-                    >
-                      <div className="task-header">
-                        <h3 className="task-title">{task.heading}</h3>
-                        <span className={`status-pill pill-${task.status.toLowerCase().replace('_', '')}`}>{task.status.replace('_', ' ')}</span>
-                      </div>
-                      {task.description && (
-                        <p className="task-description line-clamp-2">{task.description}</p>
-                      )}
-                      <div className="task-footer">
-                        {task.createdBy?.username && (
-                          <span className="project-tag">{task.createdBy.username}</span>
+                  {tasksByStatus[status].length === 0 ? (
+                    <div className="empty-column">
+                      <div className="empty-icon">📋</div>
+                      <p className="empty-text">No tasks</p>
+                    </div>
+                  ) : (
+                    tasksByStatus[status].map((task) => (
+                      <div
+                        key={task._id}
+                        className={`task-card draggable status-${task.status.toLowerCase().replace('_', '')}`}
+                        draggable
+                        onDragStart={(e) => onDragStart(e, task._id)}
+                        onClick={() => navigate(`/task/${task._id}`)}
+                      >
+                        <div className="task-card-header">
+                          <h3 className="task-title">{task.heading}</h3>
+                          <div className="task-priority">
+                            <div className={`priority-dot priority-${task.status.toLowerCase().replace('_', '')}`}></div>
+                          </div>
+                        </div>
+                        
+                        {task.description && (
+                          <div className="task-description">
+                            <p className="description-text">{task.description}</p>
+                          </div>
                         )}
-                        <div className="user-chip" title={task.assignedTo?.username || 'Unassigned'}>
-                          <span className="user-avatar">
-                            {(task.assignedTo?.username || 'U').slice(0, 1).toUpperCase()}
-                          </span>
-                          <span className="user-name line-clamp-1">{task.assignedTo?.username || 'Unassigned'}</span>
+                        
+                        <div className="task-tags">
+                          {task.projectId?.title && (
+                            <span className="project-tag">
+                              <span className="tag-icon">📁</span>
+                              {task.projectId.title}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="task-footer">
+                          <div className="task-assignee">
+                            <div className="assignee-avatar">
+                              {(task.assignedTo?.username || 'U').slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="assignee-name">{task.assignedTo?.username || 'Unassigned'}</span>
+                          </div>
+                          
+                          <div className="task-meta">
+                            <span className="created-by">
+                              by {task.createdBy?.username}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             ))}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../lib/api';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -14,22 +14,30 @@ const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchText, setSearchText] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchTasks();
+    fetchProjects();
     if (user.role === 'admin') {
       fetchUsers();
     }
   }, [user.role]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [statusFilter, projectFilter, searchText]);
 
   const fetchTasks = async () => {
     try {
       const params = {};
       if (statusFilter) params.status = statusFilter;
       if (searchText.trim()) params.search = searchText.trim();
-      const response = await axios.get('/tasks', { params });
+      if (projectFilter) params.projectId = projectFilter;
+      const response = await api.get('/tasks', { params });
       setTasks(response.data.data || response.data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -40,10 +48,19 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/auth/users');
+      const response = await api.get('/auth/users');
       setUsers(response.data.data || response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects');
+      setProjects(response.data.data || response.data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
     }
   };
 
@@ -57,15 +74,20 @@ const Dashboard = () => {
         description: newTask.description
       };
 
+      if (selectedProject) {
+        taskData.projectId = selectedProject;
+      }
+
       if (user.role === 'admin' && selectedUser) {
         taskData.assignedTo = selectedUser;
       }
 
-      const response = await axios.post('/tasks', taskData);
+      const response = await api.post('/tasks', taskData);
       if (response.data.success) {
         setNewTask({ heading: '', description: '' });
         setShowCreateForm(false);
         setSelectedUser('');
+        setSelectedProject('');
         fetchTasks();
       }
     } catch (error) {
@@ -75,7 +97,7 @@ const Dashboard = () => {
 
   const handleStatusUpdate = async (taskId, newStatus) => {
     try {
-      const response = await axios.patch(`/tasks/${taskId}/status`, { status: newStatus });
+      const response = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
       if (response.data.success) {
         fetchTasks();
       }
@@ -87,7 +109,7 @@ const Dashboard = () => {
   const handleDeleteTask = async (taskId) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
-        const response = await axios.delete(`/tasks/${taskId}`);
+        const response = await api.delete(`/tasks/${taskId}`);
         if (response.data.success) {
           fetchTasks();
         }
@@ -110,10 +132,8 @@ const Dashboard = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const filteredTasks = useMemo(() => {
-    if (!projectFilter.trim()) return tasks;
-    return tasks.filter((t) => t.project === projectFilter);
-  }, [tasks, projectFilter]);
+  // No client-side filtering needed since we're filtering server-side
+  const filteredTasks = tasks;
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -148,7 +168,21 @@ const Dashboard = () => {
             >
               Kanban
             </button>
+            <button 
+              onClick={() => navigate('/project')}
+              className="btn btn-secondary"
+            >
+              Projects
+            </button>
             <div className="filters" >
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="form-control"
+                placeholder="Search tasks..."
+                style={{ maxWidth: '200px' }}
+              />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -164,15 +198,16 @@ const Dashboard = () => {
                 className="form-control"
                 value={projectFilter}
                 onChange={(e) => setProjectFilter(e.target.value)}
-                style={{ maxWidth: '240px', marginLeft: '12px' }}
+                style={{ maxWidth: '240px' }}
               >
                 <option value="">All Projects</option>
-                <option value="PROJECT_1">Project 1</option>
-                <option value="PROJECT_2">Project 2</option>
-                <option value="PROJECT_3">Project 3</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.title}
+                  </option>
+                ))}
               </select>
               <button className="btn" onClick={() => { setStatusFilter(''); setSearchText(''); setProjectFilter(''); }}>Reset</button>
-              <button className="btn btn-secondary" onClick={fetchTasks}>Apply</button>
             </div>
           </div>
 
@@ -201,6 +236,22 @@ const Dashboard = () => {
                     rows="3"
                     placeholder="Enter task description"
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Project</label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="">Select a project...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {user.role === 'admin' && (
@@ -243,15 +294,13 @@ const Dashboard = () => {
                 <p className="no-tasks">No tasks found.</p>
               </div>
             ) : (
-              <div className="grid grid-2">
+              <div className="tasks-grid">
                 {filteredTasks.map((task) => (
-                  <div key={task._id} className="card task-card fade-in">
+                  <div key={task._id} className="task-card-simple fade-in">
                     <div className="task-header">
                       <h3 className="task-title">{task.heading}</h3>
-                      <span 
-                        className={`badge badge-${task.status.toLowerCase().replace('_', '')}`}
-                      >
-                        {task.status}
+                      <span className={`status-badge status-${task.status.toLowerCase().replace('_', '')}`}>
+                        {task.status.replace('_', ' ')}
                       </span>
                     </div>
                     
@@ -259,18 +308,23 @@ const Dashboard = () => {
                       <p className="task-description">{task.description}</p>
                     )}
                     
-                    <div className="task-meta">
-                      <p><strong>Created:</strong> {formatDate(task.createdDate)}</p>
-                      <p><strong>Created by:</strong> {task.createdBy?.username}</p>
-                      {task.assignedTo && (
-                        <p><strong>Assigned to:</strong> {task.assignedTo?.username}</p>
-                      )}
-                      {task.inProgressDate && (
-                        <p><strong>In Progress:</strong> {formatDate(task.inProgressDate)}</p>
-                      )}
-                      {task.completionDate && (
-                        <p><strong>Completed:</strong> {formatDate(task.completionDate)}</p>
-                      )}
+                    <div className="task-info">
+                      <div className="info-row">
+                        <span className="info-label">Project:</span>
+                        <span className="info-value">{task.projectId?.title || 'No Project'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Created by:</span>
+                        <span className="info-value">{task.createdBy?.username}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Assigned to:</span>
+                        <span className="info-value">{task.assignedTo?.username || 'Unassigned'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Created:</span>
+                        <span className="info-value">{formatDate(task.createdDate)}</span>
+                      </div>
                     </div>
 
                     <div className="task-actions">
@@ -281,17 +335,15 @@ const Dashboard = () => {
                         View Details
                       </button>
                       
-                      <div className="status-actions">
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleStatusUpdate(task._id, e.target.value)}
-                          className="form-control"
-                        >
-                          <option value="TO_DO">To Do</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="DONE">Done</option>
-                        </select>
-                      </div>
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusUpdate(task._id, e.target.value)}
+                        className="status-select"
+                      >
+                        <option value="TO_DO">To Do</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="DONE">Done</option>
+                      </select>
 
                       {user.role === 'admin' && (
                         <button

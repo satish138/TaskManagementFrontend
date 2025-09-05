@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../lib/api';
 import './Register.css';
 
 const Register = () => {
@@ -13,7 +13,7 @@ const Register = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, setAuthSession } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -62,7 +62,7 @@ const Register = () => {
   const checkServerHealth = async () => {
     try {
       console.log('Testing server connection...');
-      const response = await axios.get('/auth/users');
+      const response = await api.get('/auth/users');
       console.log('Server health check successful');
       return true;
     } catch (error) {
@@ -79,7 +79,7 @@ const handleSubmit = async (e) => {
   setError('');
 
   try {
-    const response = await axios.post('/auth/register', {
+    const response = await api.post('/auth/register', {
       username: formData.username.trim(),
       email: formData.email.trim(),
       password: formData.password
@@ -88,12 +88,16 @@ const handleSubmit = async (e) => {
     console.log('Registration response:', response.data);
 
     if (response.data.success || response.status === 201) {
-      // Auto-login after successful registration
-      const loginResult = await login(formData.username, formData.password);
-      
-      if (loginResult.success) {
+      // Use register response token and user for immediate session
+      const { token, user: userData } = response.data;
+      if (token && userData) {
+        setAuthSession(token, userData);
         navigate('/');
-      } else {
+        return;
+      }
+      // Fallback: attempt login
+      const loginResult = await login(formData.username, formData.password);
+      if (loginResult.success) navigate('/'); else {
         setError('Registration successful! Please login.');
         navigate('/login');
       }

@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import TaskDetails from './components/TaskDetails';
 import KanbanBoard from './components/KanbanBoard';
 import ProtectedRoute from './components/ProtectedRoute';
+import Project from './components/Project';
 import './App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/kanban" element={<ProtectedRoute><KanbanBoard /></ProtectedRoute>} />
             <Route path="/task/:id" element={<ProtectedRoute><TaskDetails /></ProtectedRoute>} />
+            <Route path="/project" element={<ProtectedRoute><Project /></ProtectedRoute>} />
           </Routes>
         </div>
       </AuthProvider>

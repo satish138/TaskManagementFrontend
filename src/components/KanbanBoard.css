@@ -8,10 +8,11 @@
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 24px 0;
+  padding: 12px 0; /* Reduced padding */
   position: sticky;
   top: 0;
   z-index: 100;
+  /* height: auto; Allow height to adjust based on content */
 }
 
 .header-content {
@@ -30,13 +31,14 @@
 .back-button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
-  padding: 12px 20px;
-  border-radius: 12px;
+  padding: 8px 12px; /* Smaller padding */
+  border-radius: 8px; /* Smaller radius */
   font-weight: 600;
+  font-size: 13px; /* Smaller font */
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
@@ -78,16 +80,16 @@
 .user-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px; /* Reduced gap */
   background: rgba(255, 255, 255, 0.1);
-  padding: 12px 20px;
-  border-radius: 12px;
+  padding: 8px 12px; /* Smaller padding */
+  border-radius: 8px; /* Smaller radius */
   backdrop-filter: blur(10px);
 }
 
 .user-avatar {
-  width: 40px;
-  height: 40px;
+  width: 30px; /* Smaller avatar */
+  height: 30px; /* Smaller avatar */
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
@@ -95,7 +97,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px; /* Smaller font */
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
@@ -119,15 +121,17 @@
 }
 
 .dashboard-content {
-  padding: 32px 0;
+  padding: 16px 0; /* Reduced padding */
+  height: calc(100vh - 60px); /* Adjust based on header height */
+  overflow: auto; /* Allow scrolling */
 }
 
 .kanban-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  gap: 24px;
+  margin-bottom: 16px; /* Reduced margin */
+  gap: 16px; /* Reduced gap */
   flex-wrap: wrap;
 }
 
@@ -181,43 +185,50 @@
 .kanban-columns {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  height: 600px;         /* fixed height for whole board */
+  gap: 16px; /* Reduced gap */
+  height: calc(100vh - 150px); /* Dynamic height based on viewport minus header and toolbar */
+  overflow: visible; /* Allow scrolling */
 }
 
 .kanban-column {
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 12px; /* Smaller radius */
+  padding: 16px; /* Smaller padding */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
-  min-height: 500px;      /* fixed column height */
+  height: 100%; /* Fill available height */
+  overflow: auto; /* Allow column scrolling */
 }
 
 .kanban-column-body {
   flex: 1;                
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;       /* scroll inside column */
-  max-height: 460px;      /* column height minus padding/header */
+  gap: 12px; /* Reduced gap */
+  overflow-y: auto; /* scroll inside column */
+  height: 100%; /* Fill available height */
+  padding-right: 4px; /* Space for scrollbar */
 }
 
 .task-card {
   flex-shrink: 0;          /* card height fixed, won't shrink */
-  height: 150px;           /* fix card height */
+  height: auto; /* Allow height to adjust based on content */
+  min-height: 180px; /* Minimum height */
+  max-height: 130px; /* Maximum height */
   background: white;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 8px; /* Smaller radius */
+  padding: 12px; /* Smaller padding */
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
   cursor: grab;
   transition: all 0.3s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .task-card.dragging {

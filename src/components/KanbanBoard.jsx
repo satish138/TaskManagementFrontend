@@ -183,16 +183,28 @@ const KanbanBoard = () => {
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
     try {
+      // Find the current task to preserve its project information
+      const currentTask = tasks.find(t => t._id === taskId);
+      if (!currentTask) return;
+      
       const response = await api.patch(`/tasks/${taskId}/status`, {
         status: newStatus,
+        projectId: currentTask.projectId?._id || currentTask.projectId
       });
+      
       if (response.data.success) {
         const updated = response.data.data || response.data;
+        // Ensure project information is preserved in the updated task
+        if (!updated.projectId && currentTask.projectId) {
+          updated.projectId = currentTask.projectId;
+        }
         setTasks((prev) =>
           prev.map((t) => (t._id === updated._id ? updated : t))
         );
       }
-    } catch (e) { }
+    } catch (e) {
+      console.error("Error updating task status:", e);
+    }
   };
 
   if (loading) return <div className="loading">Loading Kanban...</div>;
@@ -201,29 +213,36 @@ const KanbanBoard = () => {
   return (
     <div className="kanban">
       <header className="kanban-header">
-        <div className="container">
-          <div className="header-content">
-            <div className="header-left">
-              <button onClick={() => navigate('/')} className="back-button">
-                <span className="back-icon">←</span>
-                Back to Dashboard
-              </button>
-              <div className="header-title">
-                <div className="breadcrumb">
-                  <span>Dashboard</span>
-                  <span className="separator">/</span>
-                  <span>Kanban</span>
-                </div>
+        <div className="header-content">
+          <div className="header-left">
+            <button onClick={() => navigate('/')} className="back-button">
+              <span className="back-icon">←</span>
+              Back to Dashboard
+            </button>
+            <div className="header-title">
+            
+              <div className="breadcrumb">
+                <span>Dashboard</span>
+                <span className="separator">›</span>
+                <span>Kanban</span>
+                {projectFilter && projects.length > 0 && (
+                  <>
+                    <span className="separator">›</span>
+                    <span className="current-project">
+                      {projects.find(p => p.id === projectFilter)?.title || 'Project'}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
-            <div className="user-info">
-              <div className="user-avatar">
-                {(user.username || 'U').slice(0, 1).toUpperCase()}
-              </div>
-              <div className="user-details">
-                <span className="user-welcome">{user.username}</span>
-                <span className="user-role">{user.role}</span>
-              </div>
+          </div>
+          <div className="user-info">
+            <div className="user-avatar">
+              {(user.username || 'U').slice(0, 1).toUpperCase()}
+            </div>
+            <div className="user-details">
+              <span className="user-welcome">{user.username}</span>
+              <span className="user-role">{user.role}</span>
             </div>
           </div>
         </div>
@@ -336,9 +355,7 @@ const KanbanBoard = () => {
 
                         {task.description && (
                           <div className="task-description">
-                            <p className="description-text">
-                              {task.description}
-                            </p>
+                            {task.description}
                           </div>
                         )}
 
@@ -441,6 +458,7 @@ const KanbanBoard = () => {
                         const response = await api.put(`/tasks/${viewTask._id}`, {
                           ...viewTask,
                           assignedTo: viewTask.tempAssignee,
+                          projectId: viewTask.projectId?._id || viewTask.projectId || null,
                         });
                         if (response.data?.success) {
                           const updated = response.data.data;

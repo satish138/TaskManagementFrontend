@@ -182,8 +182,81 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  min-height: 600px;
+  height: 600px;         /* fixed height for whole board */
 }
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  min-height: 500px;      /* fixed column height */
+}
+
+.kanban-column-body {
+  flex: 1;                
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;       /* scroll inside column */
+  max-height: 460px;      /* column height minus padding/header */
+}
+
+.task-card {
+  flex-shrink: 0;          /* card height fixed, won't shrink */
+  height: 150px;           /* fix card height */
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  cursor: grab;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.task-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+.create-task-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  z-index: 200;
+  width: 90%;
+  max-width: 400px;
+}
+
+.create-task-backdrop {
+  position: fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+}
+.kanban-column-footer {
+  margin-top: auto;
+  text-align: center;
+  padding-top: 12px;
+}
+.btn-block {
+  width: 100%;
+}
+
 
 .kanban-column {
   background: rgba(255, 255, 255, 0.95);
@@ -642,4 +715,64 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+
+
+.task-modal .modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.task-modal .modal-title {
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.task-modal .form-control {
+  border-radius: 0.5rem;
+}
+
+.task-modal .form-label {
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.task-modal .btn-primary {
+  background: linear-gradient(90deg, #4e73df, #1cc88a);
+  border: none;
+}
+
+.task-modal .btn-primary:hover {
+  background: linear-gradient(90deg, #2e59d9, #17a673);
+}
+
+.task-modal .btn-secondary {
+  border-radius: 0.5rem;
+}
+
+.task-modal .mb-3 {
+  margin-bottom: 1.5rem;
 }

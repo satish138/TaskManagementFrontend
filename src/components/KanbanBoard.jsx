@@ -3,7 +3,9 @@ import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './KanbanBoard.css';
-import AssignModal from './AssignModal';
+import CreateTaskModal from './CreateTaskModal';
+import TaskDetailsDrawer from './TaskDetailsDrawer';
+import { Modal, Button, Form } from 'react-bootstrap';
 
 const STATUSES = ['TO_DO', 'IN_PROGRESS', 'DONE'];
 
@@ -14,17 +16,18 @@ const KanbanBoard = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [projectFilter, setProjectFilter] = useState(''); // stores projectId
+  const [projectFilter, setProjectFilter] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTask, setNewTask] = useState({ heading: '', description: '' });
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [modalTaskId, setModalTaskId] = useState('');
-  const [modalUserId, setModalUserId] = useState('');
-  const [projects, setProjects] = useState([]); // fetched from API
+  const [projects, setProjects] = useState([]);
   const [createProjectId, setCreateProjectId] = useState('');
+  const [editTask, setEditTask] = useState(null); // editing state
+  const [viewTask, setViewTask] = useState(null);
+
+
 
   useEffect(() => {
     fetchTasks();
@@ -32,14 +35,15 @@ const KanbanBoard = () => {
     if (user?.role === 'admin') {
       fetchUsers();
     } else {
-      // Non-admins can still filter by users visible in tasks
       fetchTaskUsers();
     }
   }, []);
 
   useEffect(() => {
-    // support query param project or projectId
     const params = new URLSearchParams(location.search);
+    if (params.get('create') === 'true') {
+      setShowCreateForm(true);
+    }
     const qProjectId = params.get('projectId');
     const qProjectTitle = params.get('project');
     if (qProjectId) {
@@ -48,7 +52,7 @@ const KanbanBoard = () => {
       return;
     }
     if (qProjectTitle && projects.length) {
-      const match = projects.find(p => p.title === qProjectTitle);
+      const match = projects.find((p) => p.title === qProjectTitle);
       if (match) {
         setProjectFilter(match.id);
         fetchTasks(match.id);
@@ -65,10 +69,10 @@ const KanbanBoard = () => {
   const fetchTasks = async (projectId = '') => {
     try {
       const params = new URLSearchParams();
-      if (projectId) {
-        params.append('projectId', projectId);
-      }
-      const response = await api.get(`/tasks${params.toString() ? `?${params.toString()}` : ''}`);
+      if (projectId) params.append('projectId', projectId);
+      const response = await api.get(
+        `/tasks${params.toString() ? `?${params.toString()}` : ''}`
+      );
       setTasks(response.data.data || response.data);
     } catch (e) {
       setError('Failed to load tasks');
@@ -81,55 +85,78 @@ const KanbanBoard = () => {
     try {
       const response = await api.get('/projects');
       setProjects(response.data.data || response.data);
-    } catch (e) {}
+    } catch { }
   };
 
   const fetchUsers = async () => {
     try {
       const response = await api.get('/auth/users');
       setUsers(response.data.data || response.data);
-    } catch {}
+    } catch { }
   };
 
   const fetchTaskUsers = async () => {
     try {
       const response = await api.get('/tasks/users');
       setUsers(response.data.data || response.data);
-    } catch {}
+    } catch { }
   };
 
-  const handleCreateTask = async (e) => {
-    e.preventDefault();
-    if (!newTask.heading.trim()) return;
+  const handleCreateTask = async () => {
+    if (!newTask.title?.trim()) return;
     try {
       const payload = {
-        heading: newTask.heading,
-        description: newTask.description
+        heading: newTask.title,
+        description: newTask.description,
       };
-      if (createProjectId) {
-        payload.projectId = createProjectId;
-      }
+      if (createProjectId) payload.projectId = createProjectId;
       if (user?.role === 'admin' && selectedUser) {
         payload.assignedTo = selectedUser;
       }
+
       const response = await api.post('/tasks', payload);
+
       if (response.data.success) {
         const created = response.data.data || response.data;
         setTasks((prev) => [created, ...prev]);
-        setNewTask({ heading: '', description: '' });
+        setNewTask({ title: '', description: '' });
         setSelectedUser('');
         setCreateProjectId('');
         setShowCreateForm(false);
       }
     } catch (e) {
-      // swallow for now
+      console.error(e);
     }
   };
+  const handleUpdateTask = async (updatedTask) => {
+    try {
+      const response = await api.put(`/tasks/${updatedTask._id}`, {
+        heading: updatedTask.heading,
+        description: updatedTask.description,
+        projectId: updatedTask.projectId || null,
+        assignedTo: updatedTask.assignedTo || null,
+        status: updatedTask.status || 'TO_DO',
+      });
+
+      if (response.data?.success) {
+        const savedTask = response.data.data || response.data;
+        setTasks(prev =>
+          prev.map(task => (task._id === savedTask._id ? savedTask : task))
+        );
+        setEditTask(null); // close edit modal
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
+  };
+
 
   const filteredTasks = useMemo(() => {
     let list = tasks;
     if (assigneeFilter) {
-      list = list.filter((t) => (t.assignedTo?._id || t.assignedTo) === assigneeFilter);
+      list = list.filter(
+        (t) => (t.assignedTo?._id || t.assignedTo) === assigneeFilter
+      );
     }
     return list;
   }, [tasks, assigneeFilter]);
@@ -156,52 +183,20 @@ const KanbanBoard = () => {
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
     try {
-      const response = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
+      const response = await api.patch(`/tasks/${taskId}/status`, {
+        status: newStatus,
+      });
       if (response.data.success) {
         const updated = response.data.data || response.data;
-        setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
+        setTasks((prev) =>
+          prev.map((t) => (t._id === updated._id ? updated : t))
+        );
       }
-    } catch (e) {
-      // ignore for now; a toast system could be added
-    }
+    } catch (e) { }
   };
 
-  const onChangeAssignee = async (taskId, assigneeId) => {
-    try {
-      const response = await api.patch(`/tasks/${taskId}/assignee`, { assigneeId });
-      if (response.data.success) {
-        const updated = response.data.data || response.data;
-        setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
-      }
-    } catch (e) {}
-  };
-
-  const openAssignModal = () => {
-    setModalTaskId('');
-    setModalUserId('');
-    setShowAssignModal(true);
-  };
-
-  const closeAssignModal = () => {
-    setShowAssignModal(false);
-  };
-
-  const submitAssignModal = async (e) => {
-    e.preventDefault();
-    if (!modalTaskId) return;
-    try {
-      await onChangeAssignee(modalTaskId, modalUserId || '');
-      setShowAssignModal(false);
-    } catch {}
-  };
-
-  if (loading) {
-    return <div className="loading">Loading Kanban...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
-  }
+  if (loading) return <div className="loading">Loading Kanban...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   return (
     <div className="kanban">
@@ -214,7 +209,6 @@ const KanbanBoard = () => {
                 Back to Dashboard
               </button>
               <div className="header-title">
-                {/* <h1 className="dashboard-title">Kanban Board</h1> */}
                 <div className="breadcrumb">
                   <span>Dashboard</span>
                   <span className="separator">/</span>
@@ -238,22 +232,6 @@ const KanbanBoard = () => {
       <div className="dashboard-content">
         <div className="container">
           <div className="kanban-toolbar">
-            <div className="toolbar-left">
-              {user?.role === 'admin' && (
-                <button className="btn btn-primary" onClick={openAssignModal}>
-                  <span className="btn-icon">👥</span>
-                  Assign Tasks
-                </button>
-              )}
-              {/* <button 
-                className="btn btn-secondary" 
-                onClick={() => setShowCreateForm(!showCreateForm)}
-              >
-                <span className="btn-icon">+</span>
-                {showCreateForm ? 'Cancel' : 'Create Task'}
-              </button> */}
-            </div>
-            
             <div className="toolbar-filters">
               <div className="filter-group">
                 <label className="filter-label">Project</label>
@@ -264,11 +242,13 @@ const KanbanBoard = () => {
                 >
                   <option value="">All Projects</option>
                   {projects.map((project) => (
-                    <option key={project.id} value={project.id}>{project.title}</option>
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
                   ))}
                 </select>
               </div>
-              
+
               <div className="filter-group">
                 <label className="filter-label">Assignee</label>
                 <select
@@ -278,95 +258,27 @@ const KanbanBoard = () => {
                 >
                   <option value="">All Assignees</option>
                   {users.map((u) => (
-                    <option key={u._id} value={u._id}>{u.username}</option>
+                    <option key={u._id} value={u._id}>
+                      {u.username}
+                    </option>
                   ))}
                 </select>
               </div>
-              
+
               {(projectFilter || assigneeFilter) && (
-                <button 
-                  className="btn btn-outline" 
-                  onClick={() => { setProjectFilter(''); setAssigneeFilter(''); }}
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    setProjectFilter('');
+                    setAssigneeFilter('');
+                  }}
                 >
                   Clear Filters
                 </button>
               )}
             </div>
           </div>
-          {showCreateForm && (
-            <div className="card mb-4 fade-in" style={{ padding: '16px' }}>
-              <h3 className="card-title">Create New Task</h3>
-              <form onSubmit={handleCreateTask}>
-                <div className="form-group">
-                  <label className="form-label">Heading *</label>
-                  <input
-                    type="text"
-                    value={newTask.heading}
-                    onChange={(e) => setNewTask({ ...newTask, heading: e.target.value })}
-                    required
-                    className="form-control"
-                    placeholder="Enter task heading"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Description</label>
-                  <textarea
-                    value={newTask.description}
-                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    className="form-control"
-                    rows="3"
-                    placeholder="Enter task description"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Project</label>
-                  <select
-                    value={createProjectId}
-                    onChange={(e) => setCreateProjectId(e.target.value)}
-                    className="form-control"
-                  >
-                    <option value="">Select a project...</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>{project.title}</option>
-                    ))}
-                  </select>
-                </div>
-                {user?.role === 'admin' && (
-                  <div className="form-group">
-                    <label className="form-label">Assign to</label>
-                    <select
-                      value={selectedUser}
-                      onChange={(e) => setSelectedUser(e.target.value)}
-                      className="form-control"
-                      role="button"
-                      aria-label={`Open task ${task.heading}`}
-                    >
-                      <option value="">Select user...</option>
-                      {users.map((u) => (
-                        <option key={u._id} value={u._id}>{u.username}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">Create Task</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          )}
-          {showAssignModal && (
-            <AssignModal
-              tasks={tasks}
-              users={users}
-              taskId={modalTaskId}
-              userId={modalUserId}
-              onChangeTask={setModalTaskId}
-              onChangeUser={setModalUserId}
-              onSubmit={submitAssignModal}
-              onClose={closeAssignModal}
-            />
-          )}
+
           <div className="kanban-columns">
             {STATUSES.map((status) => (
               <div
@@ -377,14 +289,23 @@ const KanbanBoard = () => {
               >
                 <div className="kanban-column-header">
                   <div className="column-title-section">
-                    <div className={`status-indicator status-${status.toLowerCase().replace('_', '')}`}></div>
-                    <h2 className="section-title">{status.replace('_', ' ')}</h2>
+                    <div
+                      className={`status-indicator status-${status
+                        .toLowerCase()
+                        .replace('_', '')}`}
+                    ></div>
+                    <h2 className="section-title">
+                      {status.replace('_', ' ')}
+                    </h2>
                   </div>
                   <div className="column-stats">
-                    <span className="badge-count">{tasksByStatus[status].length}</span>
+                    <span className="badge-count">
+                      {tasksByStatus[status].length}
+                    </span>
                     <span className="column-subtitle">tasks</span>
                   </div>
                 </div>
+
                 <div className="kanban-column-body">
                   {tasksByStatus[status].length === 0 ? (
                     <div className="empty-column">
@@ -395,24 +316,32 @@ const KanbanBoard = () => {
                     tasksByStatus[status].map((task) => (
                       <div
                         key={task._id}
-                        className={`task-card draggable status-${task.status.toLowerCase().replace('_', '')}`}
+                        className={`task-card draggable status-${task.status
+                          .toLowerCase()
+                          .replace('_', '')}`}
                         draggable
                         onDragStart={(e) => onDragStart(e, task._id)}
-                        onClick={() => navigate(`/task/${task._id}`)}
+                        onClick={() => setViewTask(task)}
                       >
                         <div className="task-card-header">
                           <h3 className="task-title">{task.heading}</h3>
                           <div className="task-priority">
-                            <div className={`priority-dot priority-${task.status.toLowerCase().replace('_', '')}`}></div>
+                            <div
+                              className={`priority-dot priority-${task.status
+                                .toLowerCase()
+                                .replace('_', '')}`}
+                            ></div>
                           </div>
                         </div>
-                        
+
                         {task.description && (
                           <div className="task-description">
-                            <p className="description-text">{task.description}</p>
+                            <p className="description-text">
+                              {task.description}
+                            </p>
                           </div>
                         )}
-                        
+
                         <div className="task-tags">
                           {task.projectId?.title && (
                             <span className="project-tag">
@@ -421,15 +350,19 @@ const KanbanBoard = () => {
                             </span>
                           )}
                         </div>
-                        
+
                         <div className="task-footer">
                           <div className="task-assignee">
                             <div className="assignee-avatar">
-                              {(task.assignedTo?.username || 'U').slice(0, 1).toUpperCase()}
+                              {(task.assignedTo?.username || 'U')
+                                .slice(0, 1)
+                                .toUpperCase()}
                             </div>
-                            <span className="assignee-name">{task.assignedTo?.username || 'Unassigned'}</span>
+                            <span className="assignee-name">
+                              {task.assignedTo?.username || 'Unassigned'}
+                            </span>
                           </div>
-                          
+
                           <div className="task-meta">
                             <span className="created-by">
                               by {task.createdBy?.username}
@@ -440,15 +373,148 @@ const KanbanBoard = () => {
                     ))
                   )}
                 </div>
+
+                <div className="kanban-column-footer">
+                  <button
+                    className="btn btn-primary btn-block"
+                    onClick={() => setShowCreateForm(true)}
+                  >
+                    + Create Task
+                  </button>
+                  {/* Inside KanbanBoard render */}
+                  <CreateTaskModal
+                    show={!!editTask}
+                    onClose={() => setEditTask(null)}
+                    onSubmit={handleUpdateTask}   // your update API
+                    newTask={editTask || { heading: '', description: '' }}
+                    setNewTask={setEditTask}
+                    projects={projects}
+                    createProjectId={createProjectId}
+                    setCreateProjectId={setCreateProjectId}
+                    users={users}
+                    selectedUser={selectedUser}
+                    setSelectedUser={setSelectedUser}
+                    isAdmin={user?.role === 'admin'}
+                    mode="edit"
+                  />
+
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {viewTask && (
+        <Modal style={{marginLeft:"150px"}} show={!!viewTask} onHide={() => setViewTask(null)} centered size="lg">
+          <Modal.Header closeButton className="bg-primary text-white">
+            <Modal.Title>{viewTask.heading}</Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            <div className="row">
+              {/* Left column: Details */}
+              <div className="col-md-8">
+                <div className="mb-3">
+                  <p><strong>Description:</strong></p>
+                  <div className="p-3 bg-light rounded">{viewTask.description || 'No description'}</div>
+                </div>
+
+                <div className="mb-2">
+                  <p><strong>Project:</strong> {viewTask.projectId?.title || 'None'}</p>
+                </div>
+
+                <div className="mb-2">
+                  <p><strong>Assigned To:</strong> {viewTask.assignedTo?.username || 'Unassigned'}</p>
+                </div>
+
+                <div className="mb-2">
+                  <p><strong>Created By:</strong> {viewTask.createdBy?.username}</p>
+                </div>
+
+                {/* Inline Assign Section */}
+                {user?.role === 'admin' && viewTask.showAssign && (
+                  <Form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      try {
+                        const response = await api.put(`/tasks/${viewTask._id}`, {
+                          ...viewTask,
+                          assignedTo: viewTask.tempAssignee,
+                        });
+                        if (response.data?.success) {
+                          const updated = response.data.data;
+                          setTasks((prev) =>
+                            prev.map((t) => (t._id === updated._id ? updated : t))
+                          );
+                          setViewTask(null);
+                        }
+                      } catch (err) {
+                        console.error('Error assigning task:', err);
+                      }
+                    }}
+                    className="d-flex align-items-center gap-2 mt-3"
+                  >
+                    <Form.Select
+                      value={viewTask.tempAssignee || ''}
+                      onChange={(e) =>
+                        setViewTask({ ...viewTask, tempAssignee: e.target.value })
+                      }
+                      className="flex-grow-1"
+                    >
+                      <option value="">Select User</option>
+                      {users.map((u) => (
+                        <option key={u._id} value={u._id}>
+                          {u.username}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Button type="submit" variant="success">
+                      Save
+                    </Button>
+                  </Form>
+                )}
+              </div>
+
+              {/* Right column: Action buttons */}
+              <div className="col-md-4 d-flex flex-column gap-2">
+                <Button variant="secondary" onClick={() => setViewTask(null)}>
+                  Close
+                </Button>
+
+                {user?.role === 'admin' && !viewTask.showAssign && (
+                  <>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setEditTask(viewTask);
+                        setViewTask(null);
+                      }}
+                    >
+                      Edit Task
+                    </Button>
+
+                    <Button
+                      variant="success"
+                      onClick={() => {
+                        setViewTask({ ...viewTask, showAssign: true });
+                      }}
+                    >
+                      Assign Task
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </Modal.Body>
+        </Modal>
+      )}
+
+
+
+
     </div>
   );
 };
 
 export default KanbanBoard;
-
-

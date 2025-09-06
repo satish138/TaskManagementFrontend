@@ -33,7 +33,7 @@ const Project = () => {
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProject.title.trim()) return;
-    
+
     try {
       const response = await api.post('/projects', newProject);
       if (response.data.success) {
@@ -50,7 +50,7 @@ const Project = () => {
   const handleUpdateProject = async (e) => {
     e.preventDefault();
     if (!editingProject.title.trim()) return;
-    
+
     try {
       const response = await api.put(`/projects/${editingProject.id}`, editingProject);
       if (response.data.success) {
@@ -60,19 +60,6 @@ const Project = () => {
       }
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to update project');
-    }
-  };
-
-  const handleDeleteProject = async (projectId) => {
-    if (!window.confirm('Are you sure you want to delete this project?')) return;
-    
-    try {
-      const response = await api.delete(`/projects/${projectId}`);
-      if (response.data.success) {
-        setProjects((prev) => prev.filter(p => p.id !== projectId));
-      }
-    } catch (e) {
-      setError(e.response?.data?.message || 'Failed to delete project');
     }
   };
 
@@ -92,6 +79,24 @@ const Project = () => {
   if (error) {
     return <div className="error">{error}</div>;
   }
+  const handleDeleteProject = async (projectId) => {
+  // Only allow deletion if user is admin
+  if (user.role !== 'admin') return;
+
+  if (!window.confirm('Are you sure you want to delete this project?')) return;
+
+  try {
+    const response = await api.delete(`/projects/${projectId}`);
+    if (response.data.success) {
+      // Remove the deleted project from state
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    }
+  } catch (e) {
+    console.error('Failed to delete project:', e);
+    alert(e.response?.data?.message || 'Failed to delete project');
+  }
+};
+
 
   return (
     <div className="project-container">
@@ -109,28 +114,31 @@ const Project = () => {
 
       <div className="dashboard-content">
         <div className="container">
-          <div className="project-toolbar">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setShowCreateForm(!showCreateForm);
-                setEditingProject(null);
-              }}
-            >
-              {showCreateForm ? 'Cancel' : 'Create New Project'}
-            </button>
-            <div className="project-stats">
-              <span className="stat-item">
-                <strong>{projects.length}</strong> Total Projects
-              </span>
+          {/* Only admin can create projects */}
+          {user.role === 'admin' && (
+            <div className="project-toolbar mb-3">
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowCreateForm(!showCreateForm);
+                  setEditingProject(null);
+                }}
+              >
+                {showCreateForm ? 'Cancel' : 'Create New Project'}
+              </button>
+              <div className="project-stats">
+                <span className="stat-item">
+                  <strong>{projects.length}</strong> Total Projects
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
-          {showCreateForm && (
-            <div className="card project-form-card fade-in">
+          {showCreateForm && user.role === 'admin' && (
+            <div className="card project-form-card fade-in mb-4">
               <h3 className="card-title">Create New Project</h3>
               <form onSubmit={handleCreateProject}>
-                <div className="form-group">
+                <div className="form-group mb-2">
                   <label className="form-label">Project Title *</label>
                   <input
                     type="text"
@@ -141,7 +149,7 @@ const Project = () => {
                     placeholder="Enter project title"
                   />
                 </div>
-                <div className="form-group">
+                <div className="form-group mb-2">
                   <label className="form-label">Description</label>
                   <textarea
                     value={newProject.description}
@@ -151,19 +159,19 @@ const Project = () => {
                     placeholder="Enter project description"
                   />
                 </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">Create Project</button>
+                <div className="form-actions mt-2">
+                  <button type="submit" className="btn btn-success me-2">Create Project</button>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>Cancel</button>
                 </div>
               </form>
             </div>
           )}
 
-          {editingProject && (
-            <div className="card project-form-card fade-in">
+          {editingProject && user.role === 'admin' && (
+            <div className="card project-form-card fade-in mb-4">
               <h3 className="card-title">Edit Project</h3>
               <form onSubmit={handleUpdateProject}>
-                <div className="form-group">
+                <div className="form-group mb-2">
                   <label className="form-label">Project Title *</label>
                   <input
                     type="text"
@@ -174,7 +182,7 @@ const Project = () => {
                     placeholder="Enter project title"
                   />
                 </div>
-                <div className="form-group">
+                <div className="form-group mb-2">
                   <label className="form-label">Description</label>
                   <textarea
                     value={editingProject.description}
@@ -184,8 +192,8 @@ const Project = () => {
                     placeholder="Enter project description"
                   />
                 </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">Update Project</button>
+                <div className="form-actions mt-2">
+                  <button type="submit" className="btn btn-success me-2">Update Project</button>
                   <button type="button" className="btn btn-secondary" onClick={cancelEdit}>Cancel</button>
                 </div>
               </form>
@@ -194,51 +202,48 @@ const Project = () => {
 
           <div className="projects-grid">
             {projects.length === 0 ? (
-              <div className="empty-state">
+              <div className="empty-state text-center my-5">
                 <div className="empty-icon">📁</div>
                 <h3>No Projects Yet</h3>
                 <p>Create your first project to get started with project management.</p>
-                <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>
-                  Create Project
-                </button>
+                {user.role === 'admin' && (
+                  <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>
+                    Create Project
+                  </button>
+                )}
               </div>
             ) : (
               projects.map((project) => (
                 <div key={project.id} className="project-card">
                   <div className="project-header">
                     <h3 className="project-title">{project.title}</h3>
-                    <div className="project-actions">
-                      <button
-                        className="btn-icon"
-                        onClick={() => startEdit(project)}
-                        title="Edit Project"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn-icon delete"
-                        onClick={() => handleDeleteProject(project.id)}
-                        title="Delete Project"
-                      >
-                        🗑️
-                      </button>
-                    </div>
+                    {user.role === 'admin' && (
+                      <div className="project-actions">
+                        <button
+                          className="btn-icon"
+                          onClick={() => startEdit(project)}
+                          title="Edit Project"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn-icon delete"
+                          onClick={() => handleDeleteProject(project.id)}
+                          title="Delete Project"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  
-                  {project.description && (
-                    <p className="project-description">{project.description}</p>
-                  )}
-                  
-                  <div className="project-footer">
+
+                  {project.description && <p className="project-description">{project.description}</p>}
+
+                  <div className="project-footer d-flex justify-content-between align-items-center">
                     <div className="project-meta">
                       <span className="project-date">
                         Created: {new Date(project.createdAt).toLocaleDateString()}
                       </span>
-                      {project.updatedAt !== project.createdAt && (
-                        <span className="project-date">
-                          Updated: {new Date(project.updatedAt).toLocaleDateString()}
-                        </span>
-                      )}
                     </div>
                     <button
                       className="btn btn-outline"

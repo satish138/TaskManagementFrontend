@@ -186,7 +186,6 @@ const UserTasks = () => {
                             <th>Task</th>
                             <th>Project</th>
                             <th>Status</th>
-                            <th>Created</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
@@ -198,10 +197,10 @@ const UserTasks = () => {
                                 <small className="text-muted">{task.description?.substring(0, 50)}{task.description?.length > 50 ? '...' : ''}</small>
                               </td>
                               <td>
-                                {task.project ? (
+                                {task.projectId ? (
                                   <span className="badge bg-info bg-opacity-75 px-3 py-2">
                                     <i className="bi bi-kanban me-1"></i>
-                                    {task.project.title}
+                                    {task.projectId?.title || 'Untitled Project'}
                                   </span>
                                 ) : (
                                   <span className="badge bg-secondary bg-opacity-50 px-3 py-2">
@@ -212,12 +211,6 @@ const UserTasks = () => {
                               </td>
                               <td>
                                 {getStatusBadge(task.status)}
-                              </td>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <i className="bi bi-calendar-date me-2 text-muted"></i>
-                                  {new Date(task.createdAt).toLocaleDateString()}
-                                </div>
                               </td>
                               <td>
                                 <Link to={`/task/${task._id}`} className="btn btn-sm btn-primary shadow-sm">

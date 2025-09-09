@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import './Project.css';
 
 const Project = () => {
@@ -41,9 +42,12 @@ const Project = () => {
         setProjects((prev) => [created, ...prev]);
         setNewProject({ title: '', description: '' });
         setShowCreateForm(false);
+        toast.success('Project created successfully!');
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Failed to create project');
+      const errorMsg = e.response?.data?.message || 'Failed to create project';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -57,9 +61,12 @@ const Project = () => {
         const updated = response.data.data;
         setProjects((prev) => prev.map(p => p.id === updated.id ? updated : p));
         setEditingProject(null);
+        toast.success('Project updated successfully!');
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Failed to update project');
+      const errorMsg = e.response?.data?.message || 'Failed to update project';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -81,7 +88,10 @@ const Project = () => {
   }
   const handleDeleteProject = async (projectId) => {
   // Only allow deletion if user is admin
-  if (user.role !== 'admin') return;
+  if (user.role !== 'admin') {
+    toast.error('Only administrators can delete projects');
+    return;
+  }
 
   if (!window.confirm('Are you sure you want to delete this project?')) return;
 
@@ -90,10 +100,12 @@ const Project = () => {
     if (response.data.success) {
       // Remove the deleted project from state
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      toast.success('Project deleted successfully!');
     }
   } catch (e) {
     console.error('Failed to delete project:', e);
-    alert(e.response?.data?.message || 'Failed to delete project');
+    const errorMsg = e.response?.data?.message || 'Failed to delete project';
+    toast.error(errorMsg);
   }
 };
 

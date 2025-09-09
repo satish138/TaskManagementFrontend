@@ -282,3 +282,9 @@ body {
   from { transform: translateX(-20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+/* User row hover effect */
+.hover-highlight:hover {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+  transition: background-color 0.2s ease;
+}

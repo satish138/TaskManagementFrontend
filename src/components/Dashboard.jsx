@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
 import './Dashboard.css';
+import { toast } from 'react-toastify';
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -98,9 +99,11 @@ const Dashboard = () => {
         setSelectedUser('');
         setSelectedProject('');
         fetchTasks();
+        toast.success('Task created successfully!');
       }
     } catch (error) {
       console.error('Error creating task:', error);
+      toast.error(error.response?.data?.message || 'Failed to create task. Please try again.');
     }
   };
 
@@ -109,9 +112,11 @@ const Dashboard = () => {
       const response = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
       if (response.data.success) {
         fetchTasks();
+        toast.success(`Task status updated to ${newStatus}`);
       }
     } catch (error) {
       console.error('Error updating task status:', error);
+      toast.error(error.response?.data?.message || 'Failed to update task status. Please try again.');
     }
   };
 
@@ -121,9 +126,11 @@ const Dashboard = () => {
         const response = await api.delete(`/tasks/${taskId}`);
         if (response.data.success) {
           fetchTasks();
+          toast.success('Task deleted successfully');
         }
       } catch (error) {
         console.error('Error deleting task:', error);
+        toast.error(error.response?.data?.message || 'Failed to delete task. Please try again.');
       }
     }
   };
@@ -183,6 +190,14 @@ const Dashboard = () => {
             >
               Projects
             </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="btn btn-outline-primary"
+              >
+                User Management
+              </button>
+            )}
             <div className="filters" >
               <input
                 type="text"

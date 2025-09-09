@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../lib/api';
+import { toast } from 'react-toastify';
 
 const AuthContext = createContext();
 
@@ -41,17 +42,21 @@ export const AuthProvider = ({ children }) => {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         setUser(userData);
+        toast.success(`Welcome back, ${userData.username}!`);
         return { success: true };
       } else {
+        toast.error(response.data.message || 'Login failed');
         return { 
           success: false, 
           message: response.data.message || 'Login failed' 
         };
       }
     } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Login failed';
+      toast.error(errorMessage);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Login failed' 
+        message: errorMessage 
       };
     }
   };
@@ -61,6 +66,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    toast.info('You have been logged out');
   };
 
   const setAuthSession = (token, userData) => {

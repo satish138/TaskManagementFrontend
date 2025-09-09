@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Row, Col } from "react-bootstrap";
+import { toast } from "react-toastify";
 
 const TaskModal = ({
   show,
@@ -48,6 +49,11 @@ const TaskModal = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!taskData?.heading?.trim()) {
+      toast.error("Task title is required");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("heading", taskData?.heading || "");

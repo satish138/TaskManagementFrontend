@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 
 const CreateTaskModal = ({
   show,
@@ -48,6 +49,11 @@ const CreateTaskModal = ({
 
   const onFormSubmit = (e) => {
     e.preventDefault();
+
+    if (!newTask?.heading?.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
 
     // ✅ prepare FormData for file upload
     const formData = new FormData();

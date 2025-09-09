@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import './Login.css';
 
 const Login = () => {
@@ -17,6 +18,7 @@ const Login = () => {
     e.preventDefault();
     if (!credentials.username || !credentials.password) {
       setError('Please enter both username and password');
+      toast.error('Please enter both username and password');
       return;
     }
 
@@ -27,8 +29,10 @@ const Login = () => {
 
     if (result.success) {
       navigate('/');
+      // Note: Success toast is already handled in AuthContext
     } else {
       setError(result.message);
+      toast.error(result.message);
     }
 
     setLoading(false);
@@ -95,8 +99,7 @@ const Login = () => {
 
         <div className="login-footer text-center mt-4">
           <p className="mb-2">
-            Don't have an account? 
-            <Link to="/register" className="link-primary"> Register here</Link>
+            Contact an administrator to create an account for you.
           </p>
         </div>
       </div>

@@ -8,6 +8,7 @@ import TaskModal from './Taskmodel';
 import TaskDetailsDrawer from './TaskDetailsDrawer';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { FaRegFilePdf } from "react-icons/fa";
+import { toast } from 'react-toastify';
 
 const STATUSES = ['TO_DO', 'IN_PROGRESS', 'DONE'];
 
@@ -124,9 +125,11 @@ const KanbanBoard = () => {
         setSelectedUser('');
         setCreateProjectId('');
         setShowCreateForm(false);
+        toast.success('Task created successfully!');
       }
     } catch (e) {
       console.error(e);
+      toast.error(e.response?.data?.message || 'Failed to create task');
     }
   };
  const handleUpdateTask = async (formData) => {
@@ -146,9 +149,11 @@ const KanbanBoard = () => {
         prev.map((task) => (task._id === savedTask._id ? savedTask : task))
       );
       setEditTask(null); // close modal
+      toast.success('Task updated successfully!');
     }
   } catch (error) {
     console.error("Error updating task:", error);
+    toast.error(error.response?.data?.message || 'Failed to update task');
   }
 };
 
@@ -204,9 +209,11 @@ const KanbanBoard = () => {
         setTasks((prev) =>
           prev.map((t) => (t._id === updated._id ? updated : t))
         );
+        toast.success(`Task moved to ${newStatus.replace('_', ' ').toLowerCase()}`);
       }
     } catch (e) {
       console.error("Error updating task status:", e);
+      toast.error(e.response?.data?.message || 'Failed to update task status');
     }
   };
 

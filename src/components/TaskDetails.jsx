@@ -18,38 +18,39 @@ const TaskDetails = () => {
   }, [id]);
 
   const fetchTask = async () => {
+    setLoading(true);
+    setError('');
     try {
       const response = await api.get(`/tasks/${id}`);
       setTask(response.data.data || response.data);
-    } catch (error) {
-      console.error('Error fetching task:', error);
-      setError('Failed to load task details');
+    } catch (err) {
+      console.error('Error fetching task:', err);
+      setError('❌ Failed to load task details. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleStatusUpdate = async (newStatus) => {
+    if (!task) return;
     setUpdating(true);
+
+    // Optimistic UI update
+    const prevStatus = task.status;
+    setTask({ ...task, status: newStatus });
+
     try {
       const response = await api.patch(`/tasks/${id}/status`, { status: newStatus });
       if (response.data.success) {
         setTask(response.data.data || response.data);
       }
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      setError('Failed to update task status');
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setError('⚠️ Failed to update status');
+      // Rollback on error
+      setTask({ ...task, status: prevStatus });
     } finally {
       setUpdating(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'TO_DO': return '#ff9800';
-      case 'IN_PROGRESS': return '#2196f3';
-      case 'DONE': return '#4caf50';
-      default: return '#666';
     }
   };
 
@@ -58,16 +59,17 @@ const TaskDetails = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  if (loading) {
-    return <div className="loading">Loading task details...</div>;
-  }
+  // ------------------------
+  // Loading & Error States
+  // ------------------------
+  if (loading) return <div className="loading">⏳ Loading task details...</div>;
 
   if (error) {
     return (
       <div className="error-container">
         <div className="error-message">{error}</div>
         <button onClick={() => navigate('/')} className="back-button">
-          Back to Dashboard
+          ← Back to Dashboard
         </button>
       </div>
     );
@@ -78,14 +80,18 @@ const TaskDetails = () => {
       <div className="error-container">
         <div className="error-message">Task not found</div>
         <button onClick={() => navigate('/')} className="back-button">
-          Back to Dashboard
+          ← Back to Dashboard
         </button>
       </div>
     );
   }
 
+  // ------------------------
+  // UI
+  // ------------------------
   return (
     <div className="task-details">
+      {/* Header */}
       <div className="task-details-header">
         <div className="header-content">
           <button onClick={() => navigate('/')} className="back-button">
@@ -96,14 +102,16 @@ const TaskDetails = () => {
             <h1>Task Details</h1>
             <div className="breadcrumb">
               <span>Dashboard</span>
-              <span className="separator">/</span>
-              <span>Task #{id.slice(-6)}</span>
+              {/* <span className="separator">/</span> */}
+              {/* <span>{task.projectId?.title || 'Untitled Project'}</span> */}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="task-details-content">
+        {/* Hero */}
         <div className="task-hero">
           <div className="task-title-section">
             <h2 className="task-title">{task.heading}</h2>
@@ -117,88 +125,47 @@ const TaskDetails = () => {
           </div>
           
           {task.description && (
-            <div className="task-description-section">
+            <div className="task-description-section ">
               <h3 className="section-title">Description</h3>
-              <div className="description-content">
+              <br />
+              <div className="description-content p-2">
                 <p>{task.description}</p>
               </div>
             </div>
           )}
 
           {task.projectId && (
-            <div className="project-info">
+            <div className="project-info" >
               <span className="project-label">Project</span>
               <span className="project-name">{task.projectId.title}</span>
             </div>
           )}
         </div>
 
+        {/* People & Timeline */}
         <div className="task-info-grid">
-          <div className="info-card">
-            <div className="card-header">
-              <h3>People</h3>
-            </div>
+          <div className="info-card p-3" >
+            <div className="card-header"><h3>People</h3></div>
             <div className="card-content">
-              <div className="user-info-item">
-                <div className="user-avatar-large">
-                  {(task.createdBy?.username || 'U').slice(0,1).toUpperCase()}
-                </div>
-                <div className="user-details">
-                  <span className="user-role">Created by</span>
-                  <span className="user-name">{task.createdBy?.username || 'Unknown'}</span>
-                </div>
-              </div>
-              <div className="user-info-item">
-                <div className="user-avatar-large">
-                  {(task.assignedTo?.username || 'U').slice(0,1).toUpperCase()}
-                </div>
-                <div className="user-details">
-                  <span className="user-role">Assigned to</span>
-                  <span className="user-name">{task.assignedTo?.username || 'Unassigned'}</span>
-                </div>
-              </div>
+              <UserInfo role="Created by" user={task.createdBy} />
+              <UserInfo role="Assigned to" user={task.assignedTo} />
             </div>
           </div>
 
-          <div className="info-card">
-            <div className="card-header">
-              <h3>Timeline</h3>
-            </div>
+          <div className="info-card p-3">
+            <div className="card-header"><h3>Timeline</h3></div>
             <div className="card-content">
-              <div className="timeline-item">
-                <div className="timeline-dot created"></div>
-                <div className="timeline-content">
-                  <span className="timeline-label">Created</span>
-                  <span className="timeline-date">{formatDate(task.createdDate)}</span>
-                </div>
-              </div>
-              {task.inProgressDate && (
-                <div className="timeline-item">
-                  <div className="timeline-dot in-progress"></div>
-                  <div className="timeline-content">
-                    <span className="timeline-label">In Progress</span>
-                    <span className="timeline-date">{formatDate(task.inProgressDate)}</span>
-                  </div>
-                </div>
-              )}
-              {task.completionDate && (
-                <div className="timeline-item">
-                  <div className="timeline-dot completed"></div>
-                  <div className="timeline-content">
-                    <span className="timeline-label">Completed</span>
-                    <span className="timeline-date">{formatDate(task.completionDate)}</span>
-                  </div>
-                </div>
-              )}
+              <TimelineItem label="Created" date={task.createdDate} type="created" />
+              {task.inProgressDate && <TimelineItem label="In Progress" date={task.inProgressDate} type="in-progress" />}
+              {task.completionDate && <TimelineItem label="Completed" date={task.completionDate} type="completed" />}
             </div>
           </div>
         </div>
 
+        {/* Actions */}
         <div className="task-actions-section">
           <div className="action-card">
-            <div className="card-header">
-              <h3>Update Status</h3>
-            </div>
+            <div className="card-header"><h3>Update Status</h3></div>
             <div className="card-content">
               <div className="status-update-container">
                 <div className="status-select-wrapper">
@@ -217,20 +184,46 @@ const TaskDetails = () => {
                 
                 <div className="status-flow-info">
                   <div className="flow-steps">
-                    <span className={`flow-step ${task.status === 'TO_DO' ? 'active' : ''}`}>To Do</span>
-                    <span className="flow-arrow">→</span>
-                    <span className={`flow-step ${task.status === 'IN_PROGRESS' ? 'active' : ''}`}>In Progress</span>
-                    <span className="flow-arrow">→</span>
-                    <span className={`flow-step ${task.status === 'DONE' ? 'active' : ''}`}>Done</span>
+                    {['TO_DO', 'IN_PROGRESS', 'DONE'].map((step, i) => (
+                      <React.Fragment key={step}>
+                        <span className={`flow-step ${task.status === step ? 'active' : ''}`}>
+                          {step.replace('_', ' ')}
+                        </span>
+                        {i < 2 && <span className="flow-arrow">→</span>}
+                      </React.Fragment>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </div>  
     </div>
   );
 };
+
+/* Small subcomponents for clarity */
+const UserInfo = ({ role, user }) => (
+  <div className="user-info-item">
+    <div className="user-avatar-large">
+      {(user?.username || 'U').charAt(0).toUpperCase()}
+    </div>
+    <div className="user-details">
+      <span className="user-role">{role}</span>
+      <span className="user-name">{user?.username || 'Unknown'}</span>
+    </div>
+  </div>
+);
+
+const TimelineItem = ({ label, date, type }) => (
+  <div className="timeline-item">
+    <div className={`timeline-dot ${type}`}></div>
+    <div className="timeline-content">
+      <span className="timeline-label">{label}</span>
+      <span className="timeline-date">{date ? new Date(date).toLocaleString() : 'Not set'}</span>
+    </div>
+  </div>
+);
 
 export default TaskDetails;

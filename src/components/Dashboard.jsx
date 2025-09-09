@@ -17,6 +17,9 @@ const Dashboard = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
   const { user, logout } = useAuth();
+  const [file, setFile] = useState(null);
+  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,28 +66,34 @@ const Dashboard = () => {
       console.error('Error fetching projects:', error);
     }
   };
-
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTask.heading.trim()) return;
 
     try {
-      const taskData = {
-        heading: newTask.heading,
-        description: newTask.description
-      };
+      const formData = new FormData();
+      formData.append('heading', newTask.heading);
+      formData.append('description', newTask.description);
 
       if (selectedProject) {
-        taskData.projectId = selectedProject;
+        formData.append('projectId', selectedProject);
       }
 
       if (user.role === 'admin' && selectedUser) {
-        taskData.assignedTo = selectedUser;
+        formData.append('assignedTo', selectedUser);
       }
 
-      const response = await api.post('/tasks', taskData);
+      if (file) {
+        formData.append('file', file);
+      }
+
+      const response = await api.post('/tasks', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
       if (response.data.success) {
         setNewTask({ heading: '', description: '' });
+        setFile(null);
         setShowCreateForm(false);
         setSelectedUser('');
         setSelectedProject('');
@@ -147,7 +156,7 @@ const Dashboard = () => {
             <h1 className="dashboard-title">Task Management Dashboard</h1>
             <div className="user-info">
               <span className="user-welcome">Welcome, {user.username} ({user.role})</span>
-              <button onClick={logout} className="btn btn-secondary">Logout</button>
+              <button onClick={logout} className="btn btn-danger">Logout</button>
             </div>
           </div>
         </div>
@@ -156,21 +165,21 @@ const Dashboard = () => {
       <div className="dashboard-content">
         <div className="container">
           <div className="dashboard-actions mb-4">
-            <button 
+            <button
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="btn btn-primary"
             >
               {showCreateForm ? 'Cancel' : 'Create New Task'}
             </button>
-            <button 
+            <button
               onClick={() => navigate('/kanban')}
-              className="btn btn-secondary"
+              className="btn btn-outline-primary"
             >
               Kanban
             </button>
-            <button 
+            <button
               onClick={() => navigate('/project')}
-              className="btn btn-secondary"
+              className="btn btn-outline-primary"
             >
               Projects
             </button>
@@ -183,6 +192,9 @@ const Dashboard = () => {
                 placeholder="Search tasks..."
                 style={{ maxWidth: '200px' }}
               />
+
+
+
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -220,18 +232,29 @@ const Dashboard = () => {
                   <input
                     type="text"
                     value={newTask.heading}
-                    onChange={(e) => setNewTask({...newTask, heading: e.target.value})}
+                    onChange={(e) => setNewTask({ ...newTask, heading: e.target.value })}
                     required
                     className="form-control"
                     placeholder="Enter task heading"
                   />
                 </div>
-                
+
+
+                <div className="form-group">
+                  <label className="form-label">Upload File</label>
+                  <input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files[0])}
+                    className="form-control"
+                  />
+                </div>
+
+
                 <div className="form-group">
                   <label className="form-label">Description</label>
                   <textarea
                     value={newTask.description}
-                    onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                     className="form-control"
                     rows="3"
                     placeholder="Enter task description"
@@ -274,8 +297,8 @@ const Dashboard = () => {
 
                 <div className="form-actions">
                   <button type="submit" className="btn btn-success">Create Task</button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowCreateForm(false)}
                     className="btn btn-secondary"
                   >
@@ -288,7 +311,7 @@ const Dashboard = () => {
 
           <div className="tasks-section">
             <h2 className="section-title">{user.role === 'admin' ? 'All Tasks' : 'My Tasks'}</h2>
-            
+
             {filteredTasks.length === 0 ? (
               <div className="card text-center">
                 <p className="no-tasks">No tasks found.</p>
@@ -303,11 +326,11 @@ const Dashboard = () => {
                         {task.status.replace('_', ' ')}
                       </span>
                     </div>
-                    
+
                     {task.description && (
                       <p className="task-description">{task.description}</p>
                     )}
-                    
+
                     <div className="task-info">
                       <div className="info-row">
                         <span className="info-label">Project:</span>
@@ -334,7 +357,7 @@ const Dashboard = () => {
                       >
                         View Details
                       </button>
-                      
+
                       <select
                         value={task.status}
                         onChange={(e) => handleStatusUpdate(task._id, e.target.value)}

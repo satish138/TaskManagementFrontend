@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 const CreateTaskModal = ({
@@ -16,18 +16,19 @@ const CreateTaskModal = ({
   isAdmin,
   mode = 'create', // 'create' or 'edit'
 }) => {
+  const [file, setFile] = useState(null); // ✅ file state
 
   const handleTitleChange = (value) => {
-    setNewTask(prev => ({ ...(prev || {}), heading: value }));
+    setNewTask((prev) => ({ ...(prev || {}), heading: value }));
   };
 
   const handleDescriptionChange = (value) => {
-    setNewTask(prev => ({ ...(prev || {}), description: value }));
+    setNewTask((prev) => ({ ...(prev || {}), description: value }));
   };
 
   const handleProjectChange = (val) => {
     if (mode === 'edit') {
-      setNewTask(prev => ({ ...(prev || {}), projectId: val || null }));
+      setNewTask((prev) => ({ ...(prev || {}), projectId: val || null }));
     } else {
       setCreateProjectId(val);
     }
@@ -35,15 +36,36 @@ const CreateTaskModal = ({
 
   const handleAssignedChange = (val) => {
     if (mode === 'edit') {
-      setNewTask(prev => ({ ...(prev || {}), assignedTo: val || null }));
+      setNewTask((prev) => ({ ...(prev || {}), assignedTo: val || null }));
     } else {
       setSelectedUser(val);
     }
   };
 
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+
   const onFormSubmit = (e) => {
     e.preventDefault();
-    onSubmit(newTask);
+
+    // ✅ prepare FormData for file upload
+    const formData = new FormData();
+    formData.append('heading', newTask?.heading || '');
+    formData.append('description', newTask?.description || '');
+    if (mode === 'edit') {
+      if (newTask?.projectId) formData.append('projectId', newTask.projectId);
+      if (newTask?.assignedTo) formData.append('assignedTo', newTask.assignedTo);
+      if (newTask?.status) formData.append('status', newTask.status);
+    } else {
+      if (createProjectId) formData.append('projectId', createProjectId);
+      if (selectedUser) formData.append('assignedTo', selectedUser);
+    }
+    if (file) {
+      formData.append('file', file);
+    }
+
+    onSubmit(formData); // send to parent handler
   };
 
   const projectValue =
@@ -57,12 +79,12 @@ const CreateTaskModal = ({
       : selectedUser ?? '';
 
   return (
-    <Modal show={show} onHide={onClose} centered>
+    <Modal show={show} onHide={onClose} centered style={{marginLeft:"130px"}}>
       <Modal.Header closeButton>
         <Modal.Title>{mode === 'edit' ? 'Edit Task' : 'Create Task'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Form onSubmit={onFormSubmit}>
+        <Form onSubmit={onFormSubmit} encType="multipart/form-data">
           <Form.Group className="mb-3">
             <Form.Label>Task Title</Form.Label>
             <Form.Control
@@ -91,7 +113,11 @@ const CreateTaskModal = ({
                 onChange={(e) => handleAssignedChange(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {users.map(u => <option key={u._id} value={u._id}>{u.username}</option>)}
+                {users.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.username}
+                  </option>
+                ))}
               </Form.Select>
             </Form.Group>
           )}
@@ -103,8 +129,18 @@ const CreateTaskModal = ({
               onChange={(e) => handleProjectChange(e.target.value)}
             >
               <option value="">Select Project</option>
-              {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+              {projects.map((p) => (
+                <option key={p._id} value={p._id}>
+                  {p.title}
+                </option>
+              ))}
             </Form.Select>
+          </Form.Group>
+
+          {/* ✅ File Upload */}
+          <Form.Group className="mb-3">
+            <Form.Label>Attach File (optional)</Form.Label>
+            <Form.Control type="file" onChange={handleFileChange} />
           </Form.Group>
 
           <Button type="submit" variant="primary" className="w-100">

@@ -4,8 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './KanbanBoard.css';
 import CreateTaskModal from './CreateTaskModal';
+import TaskModal from './Taskmodel';
 import TaskDetailsDrawer from './TaskDetailsDrawer';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { FaRegFilePdf } from "react-icons/fa";
 
 const STATUSES = ['TO_DO', 'IN_PROGRESS', 'DONE'];
 
@@ -26,6 +28,10 @@ const KanbanBoard = () => {
   const [createProjectId, setCreateProjectId] = useState('');
   const [editTask, setEditTask] = useState(null); // editing state
   const [viewTask, setViewTask] = useState(null);
+  const [showThumbnail, setShowThumbnail] = useState(false);
+  const [thumbnailSrc, setThumbnailSrc] = useState('');
+  const [showImagePopup, setShowImagePopup] = useState(false);
+  const [popupImageSrc, setPopupImageSrc] = useState('');
 
 
 
@@ -102,24 +108,19 @@ const KanbanBoard = () => {
     } catch { }
   };
 
-  const handleCreateTask = async () => {
-    if (!newTask.title?.trim()) return;
+  const handleCreateTask = async (formData) => {
+    if (!formData.get('heading')?.trim()) return;
     try {
-      const payload = {
-        heading: newTask.title,
-        description: newTask.description,
-      };
-      if (createProjectId) payload.projectId = createProjectId;
-      if (user?.role === 'admin' && selectedUser) {
-        payload.assignedTo = selectedUser;
-      }
-
-      const response = await api.post('/tasks', payload);
+      const response = await api.post('/tasks', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
       if (response.data.success) {
         const created = response.data.data || response.data;
         setTasks((prev) => [created, ...prev]);
-        setNewTask({ title: '', description: '' });
+        setNewTask({ heading: '', description: '' });
         setSelectedUser('');
         setCreateProjectId('');
         setShowCreateForm(false);
@@ -128,27 +129,29 @@ const KanbanBoard = () => {
       console.error(e);
     }
   };
-  const handleUpdateTask = async (updatedTask) => {
-    try {
-      const response = await api.put(`/tasks/${updatedTask._id}`, {
-        heading: updatedTask.heading,
-        description: updatedTask.description,
-        projectId: updatedTask.projectId || null,
-        assignedTo: updatedTask.assignedTo || null,
-        status: updatedTask.status || 'TO_DO',
-      });
-
-      if (response.data?.success) {
-        const savedTask = response.data.data || response.data;
-        setTasks(prev =>
-          prev.map(task => (task._id === savedTask._id ? savedTask : task))
-        );
-        setEditTask(null); // close edit modal
-      }
-    } catch (error) {
-      console.error("Error updating task:", error);
+ const handleUpdateTask = async (formData) => {
+  try {
+    // Ensure status is included in the formData
+    if (editTask && editTask.status && !formData.get('status')) {
+      formData.append('status', editTask.status);
     }
-  };
+
+    const response = await api.put(`/tasks/${editTask._id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    if (response.data?.success) {
+      const savedTask = response.data.data || response.data;
+      setTasks((prev) =>
+        prev.map((task) => (task._id === savedTask._id ? savedTask : task))
+      );
+      setEditTask(null); // close modal
+    }
+  } catch (error) {
+    console.error("Error updating task:", error);
+  }
+};
+
 
 
   const filteredTasks = useMemo(() => {
@@ -220,7 +223,7 @@ const KanbanBoard = () => {
               Back to Dashboard
             </button>
             <div className="header-title">
-            
+              <h1>Task Board</h1>
               <div className="breadcrumb">
                 <span>Dashboard</span>
                 <span className="separator">›</span>
@@ -247,6 +250,19 @@ const KanbanBoard = () => {
           </div>
         </div>
       </header>
+      
+      {/* Create Task Modal */}
+      <TaskModal
+        show={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        onSubmit={handleCreateTask}
+        taskData={newTask}
+        setTaskData={setNewTask}
+        projects={projects}
+        users={users}
+        isAdmin={user?.role === 'admin'}
+        mode="create"
+      />
 
       <div className="dashboard-content">
         <div className="container">
@@ -302,7 +318,7 @@ const KanbanBoard = () => {
             {STATUSES.map((status) => (
               <div
                 key={status}
-                className={`kanban-column kanban-${status.toLowerCase()}`}
+                className={`kanban-column kanban-${status.toLowerCase()} scrollable-column`}
                 onDragOver={onDragOver}
                 onDrop={(e) => onDrop(e, status)}
               >
@@ -398,23 +414,6 @@ const KanbanBoard = () => {
                   >
                     + Create Task
                   </button>
-                  {/* Inside KanbanBoard render */}
-                  <CreateTaskModal
-                    show={!!editTask}
-                    onClose={() => setEditTask(null)}
-                    onSubmit={handleUpdateTask}   // your update API
-                    newTask={editTask || { heading: '', description: '' }}
-                    setNewTask={setEditTask}
-                    projects={projects}
-                    createProjectId={createProjectId}
-                    setCreateProjectId={setCreateProjectId}
-                    users={users}
-                    selectedUser={selectedUser}
-                    setSelectedUser={setSelectedUser}
-                    isAdmin={user?.role === 'admin'}
-                    mode="edit"
-                  />
-
                 </div>
               </div>
             ))}
@@ -422,8 +421,28 @@ const KanbanBoard = () => {
         </div>
       </div>
 
+      {/* Edit Task Modal */}
+      <TaskModal
+        show={!!editTask}
+        onClose={() => setEditTask(null)}
+        onSubmit={handleUpdateTask}
+        taskData={editTask || { heading: '', description: '' }}
+        setTaskData={setEditTask}
+        projects={projects}
+        users={users}
+        isAdmin={user?.role === 'admin'}
+        mode="edit"
+      />
+
+      {/* View Task Modal */}
       {viewTask && (
-        <Modal style={{marginLeft:"150px"}} show={!!viewTask} onHide={() => setViewTask(null)} centered size="lg">
+        <Modal style={{marginLeft:"130px"}} show={!!viewTask} onHide={() => {
+                  setViewTask(null);
+                  setShowThumbnail(false);
+                  setThumbnailSrc('');
+                  setShowImagePopup(false);
+                  setPopupImageSrc('');
+                }} centered size="lg">
           <Modal.Header closeButton className="bg-primary text-white">
             <Modal.Title>{viewTask.heading}</Modal.Title>
           </Modal.Header>
@@ -449,17 +468,54 @@ const KanbanBoard = () => {
                   <p><strong>Created By:</strong> {viewTask.createdBy?.username}</p>
                 </div>
 
+                {/* File attachment display if present */}
+                {viewTask.file && (
+                  <div className="mb-2">
+                    <p><strong>Attachment:</strong> {viewTask.file.split('/').pop()}</p>
+                    {viewTask.file.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? (
+                      <div className="mb-2">
+                        <div className="mt-3 position-relative">
+                          <img 
+                            src={`http://localhost:5000/${viewTask.file}`} 
+                            alt="Attachment preview" 
+                            className="img-fluid rounded cursor-pointer" 
+                            style={{ maxWidth: '100%', maxHeight: '100px' }}
+                            onClick={() => {
+                              setShowImagePopup(true);
+                              setPopupImageSrc(`http://localhost:5000/${viewTask.file}`);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <a href={`http://localhost:5000/${viewTask.file}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
+                        <FaRegFilePdf size={30}/>
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 {/* Inline Assign Section */}
                 {user?.role === 'admin' && viewTask.showAssign && (
                   <Form
                     onSubmit={async (e) => {
                       e.preventDefault();
                       try {
-                        const response = await api.put(`/tasks/${viewTask._id}`, {
-                          ...viewTask,
-                          assignedTo: viewTask.tempAssignee,
-                          projectId: viewTask.projectId?._id || viewTask.projectId || null,
+                        // Create FormData for assignment update
+                        const formData = new FormData();
+                        formData.append('assignedTo', viewTask.tempAssignee || '');
+                        if (viewTask.projectId?._id) {
+                          formData.append('projectId', viewTask.projectId._id);
+                        } else if (viewTask.projectId) {
+                          formData.append('projectId', viewTask.projectId);
+                        }
+                        
+                        const response = await api.put(`/tasks/${viewTask._id}`, formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data'
+                          }
                         });
+                        
                         if (response.data?.success) {
                           const updated = response.data.data;
                           setTasks((prev) =>
@@ -496,7 +552,11 @@ const KanbanBoard = () => {
 
               {/* Right column: Action buttons */}
               <div className="col-md-4 d-flex flex-column gap-2">
-                <Button variant="secondary" onClick={() => setViewTask(null)}>
+                <Button variant="secondary" onClick={() => {
+                  setViewTask(null);
+                  setShowThumbnail(false);
+                  setThumbnailSrc('');
+                }}>
                   Close
                 </Button>
 
@@ -505,7 +565,13 @@ const KanbanBoard = () => {
                     <Button
                       variant="primary"
                       onClick={() => {
-                        setEditTask(viewTask);
+                        // Ensure we include the status when editing
+                        const taskToEdit = {
+                          ...viewTask,
+                          status: viewTask.status || 'TO_DO', // Explicitly include status with fallback
+                          projectId: viewTask.projectId?._id || viewTask.projectId // Preserve project ID
+                        };
+                        setEditTask(taskToEdit);
                         setViewTask(null);
                       }}
                     >
@@ -528,8 +594,24 @@ const KanbanBoard = () => {
         </Modal>
       )}
 
-
-
+      {/* Image Popup */}
+      {showImagePopup && (
+        <div className="image-popup-overlay" onClick={() => setShowImagePopup(false)}>
+          <div className="image-popup-content" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={popupImageSrc} 
+              alt="Full size preview" 
+              className="popup-image"
+            />
+            <button 
+              className="popup-close-btn"
+              onClick={() => setShowImagePopup(false)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

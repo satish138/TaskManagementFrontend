@@ -45,6 +45,8 @@ const UserManagement = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(5);
+  const [deleteUserId, setDeleteUserId] = useState(null);
+
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -72,7 +74,7 @@ const UserManagement = () => {
   // Fetch users and projects
   useEffect(() => {
     fetchUsers();
-    
+
     // Fetch projects for dropdown
     const getProjects = async () => {
       try {
@@ -82,35 +84,57 @@ const UserManagement = () => {
         console.error('Error fetching projects:', err);
       }
     };
-    
+
     getProjects();
   }, []);
-  
+
+
+  // Delete handler
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Are you sure you want to remove this user?")) return;
+
+    try {
+      setLoading(true);
+      const response = await api.delete(`/auth/users/${id}`);
+      if (response.data.success) {
+        toast.success("User removed successfully!");
+        setUsers(users.filter(u => u._id !== id)); // remove from state
+        setFilteredUsers(filteredUsers.filter(u => u._id !== id));
+      } else {
+        toast.error("Failed to remove user");
+      }
+    } catch (err) {
+      console.error("Error removing user:", err);
+      toast.error(err.response?.data?.message || "Error removing user");
+    } finally {
+      setLoading(false);
+    }
+  };
   // Filter users based on search term and role filter
   useEffect(() => {
     if (!users) return;
-    
+
     const filtered = users.filter(user => {
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-        
+
       const matchesRole = filterRole === 'all' || user.role === filterRole;
-      
+
       return matchesSearch && matchesRole;
     });
-    
+
     setFilteredUsers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [users, searchTerm, filterRole]);
-  
+
   // Handle pagination
   useEffect(() => {
     const indexOfLastUser = currentPage * usersPerPage;
     const indexOfFirstUser = indexOfLastUser - usersPerPage;
     setDisplayedUsers(filteredUsers.slice(indexOfFirstUser, indexOfLastUser));
   }, [filteredUsers, currentPage, usersPerPage]);
-  
+
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -134,7 +158,7 @@ const UserManagement = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.startsWith('taskData.')) {
       // Handle task fields
       const taskField = name.split('.')[1];
@@ -162,15 +186,15 @@ const UserManagement = () => {
         [name]: value
       }));
     }
-    
+
     setFormError('');
     setSuccessMessage('');
   };
-  
+
   // Toggle task assignment section
   const toggleTaskAssignment = () => {
     setAssignTask(!assignTask);
-    
+
     // Reset task data if disabling
     if (assignTask) {
       setFormData(prev => ({
@@ -196,32 +220,32 @@ const UserManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Reset error and success messages
     setFormError('');
     setSuccessMessage('');
-    
+
     // Validate form
     if (!formData.username || !formData.email || !formData.password) {
       setFormError('All required fields must be filled out');
       return;
     }
-    
+
     if (!validateEmail(formData.email)) {
       setFormError('Please enter a valid email address');
       return;
     }
-    
+
     if (!validatePassword(formData.password)) {
       setFormError('Password must be at least 6 characters long');
       return;
     }
-    
+
     if (assignTask && formData.taskData.title.trim() === '') {
       setFormError('Task title is required when assigning a task');
       return;
     }
-    
+
     // Show confirmation modal instead of submitting directly
     setShowConfirmModal(true);
     // Add overflow hidden to body to prevent scrolling when modal is open
@@ -240,7 +264,7 @@ const UserManagement = () => {
     try {
       setLoading(true);
       setFormError('');
-      
+
       // Prepare data for submission
       const submitData = {
         username: formData.username.trim(),
@@ -248,12 +272,12 @@ const UserManagement = () => {
         password: formData.password,
         role: formData.role,
       };
-      
+
       // Add project ID if selected
       if (formData.projectId) {
         submitData.projectId = formData.projectId;
       }
-      
+
       // Add task data if task assignment is enabled
       if (assignTask) {
         submitData.taskData = {
@@ -263,18 +287,18 @@ const UserManagement = () => {
           projectId: formData.taskData.projectId || formData.projectId // Use task project ID or form project ID
         };
       }
-      
+
       console.log('Submitting user data:', submitData);
-      
+
       // Send request to register user
       const response = await api.post('/auth/admin/register', submitData);
-      
+
       console.log('Registration response:', response.data);
-      
+
       // Handle success
       const username = submitData.username;
       toast.success(`User ${username} registered successfully!`);
-      
+
       // Reset form
       setFormData({
         username: '',
@@ -290,10 +314,10 @@ const UserManagement = () => {
       });
       setAssignTask(false);
       setShowCreateForm(false); // Hide the form after successful submission
-      
+
       // Refresh user list
       fetchUsers();
-      
+
       // Scroll to top of form to show success message
       const formCard = document.querySelector('.user-form-card');
       if (formCard) {
@@ -354,9 +378,9 @@ const UserManagement = () => {
                     setShowConfirmModal(false);
                     document.body.style.overflow = '';
                   }}>Cancel</button>
-                  <button 
-                    type="button" 
-                    className="btn btn-primary" 
+                  <button
+                    type="button"
+                    className="btn btn-primary"
                     onClick={handleConfirmedSubmit}
                     disabled={loading}
                   >
@@ -376,7 +400,7 @@ const UserManagement = () => {
           <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
         </>
       )}
-      
+
       <header className="dashboard-header">
         <div className="container">
           <div className="header-content">
@@ -393,7 +417,7 @@ const UserManagement = () => {
           </div>
         </div>
       </header>
-      
+
       <div className="container">
         <nav className="breadcrumb-nav" aria-label="breadcrumb">
           <ol className="breadcrumb">
@@ -413,7 +437,7 @@ const UserManagement = () => {
               <i className={`bi ${showCreateForm ? 'bi-x-circle' : 'bi-person-plus'} me-2`}></i>
               {showCreateForm ? 'Cancel' : 'Create New User'}
             </button>
-            <div className="user-stats d-flex gap-3">
+            {/* <div className="user-stats d-flex gap-3">
               <div className="stat-item badge bg-primary bg-opacity-75 px-3 py-2 d-flex align-items-center">
                 <i className="bi bi-people-fill me-2"></i>
                 <strong>{users.length}</strong> <span className="ms-1">Total Users</span>
@@ -422,7 +446,7 @@ const UserManagement = () => {
                 <i className="bi bi-briefcase-fill me-2"></i>
                 <strong>{projects.length}</strong> <span className="ms-1">Projects</span>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {showCreateForm && (
@@ -431,7 +455,7 @@ const UserManagement = () => {
                 <h3 className="card-title">Create New User</h3>
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                
+
                 <form onSubmit={handleSubmit}>
                   <div className="form-group mb-3">
                     <label htmlFor="username" className="form-label">Username <span className="text-danger">*</span></label>
@@ -446,7 +470,7 @@ const UserManagement = () => {
                       required
                     />
                   </div>
-                  
+
                   <div className="form-group mb-3">
                     <label htmlFor="email" className="form-label">Email <span className="text-danger">*</span></label>
                     <input
@@ -461,7 +485,7 @@ const UserManagement = () => {
                     />
                     <small className="form-text text-muted">We'll never share the email with anyone else.</small>
                   </div>
-                  
+
                   <div className="form-group mb-3">
                     <label htmlFor="password" className="form-label">Password <span className="text-danger">*</span></label>
                     <input
@@ -476,7 +500,7 @@ const UserManagement = () => {
                     />
                     <small className="form-text text-muted">Password must be at least 6 characters long.</small>
                   </div>
-                  
+
                   <div className="form-group mb-3">
                     <label htmlFor="role" className="form-label">Role</label>
                     <select
@@ -583,7 +607,7 @@ const UserManagement = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="d-flex gap-2">
                     <button type="submit" className="btn btn-primary" disabled={loading}>
                       {loading ? (
@@ -598,9 +622,9 @@ const UserManagement = () => {
                         </>
                       )}
                     </button>
-                    <button 
-                      type="button" 
-                      className="btn btn-outline-secondary" 
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
                       onClick={() => {
                         setFormData({
                           username: '',
@@ -635,21 +659,21 @@ const UserManagement = () => {
                 <h3 className="card-title mb-0">User List</h3>
                 <span className="badge bg-primary rounded-pill">{filteredUsers.length} users</span>
               </div>
-              
+
               <div className="row mb-4">
                 <div className="col-md-8 mb-3 mb-md-0">
                   <div className="input-group shadow-sm">
                     <span className="input-group-text bg-primary text-white"><i className="bi bi-search"></i></span>
-                    <input 
-                      type="text" 
-                      className="form-control border-primary" 
-                      placeholder="Search by username or email..." 
+                    <input
+                      type="text"
+                      className="form-control border-primary"
+                      placeholder="Search by username or email..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     {searchTerm && (
-                      <button 
-                        className="btn btn-outline-primary" 
+                      <button
+                        className="btn btn-outline-primary"
                         type="button"
                         onClick={() => setSearchTerm('')}
                       >
@@ -661,8 +685,8 @@ const UserManagement = () => {
                 <div className="col-md-4">
                   <div className="input-group shadow-sm">
                     <span className="input-group-text bg-primary text-white"><i className="bi bi-filter"></i></span>
-                    <select 
-                      className="form-select border-primary" 
+                    <select
+                      className="form-select border-primary"
                       value={filterRole}
                       onChange={(e) => setFilterRole(e.target.value)}
                     >
@@ -673,7 +697,7 @@ const UserManagement = () => {
                   </div>
                 </div>
               </div>
-              
+
               {loading ? (
                 <div className="d-flex justify-content-center p-4">
                   <div className="spinner-border text-primary" role="status">
@@ -698,17 +722,18 @@ const UserManagement = () => {
                         <th>Email</th>
                         <th>Role</th>
                         <th>Created</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedUsers.map(user => (
-                        <tr 
-                          key={user._id} 
-                          onClick={() => navigate(`/admin/users/${user._id}/tasks`)} 
-                          style={{ cursor: 'pointer' }} 
+                        <tr
+                          key={user._id}
+
+                          style={{ cursor: 'pointer' }}
                           className="user-row hover-highlight"
                         >
-                          <td>
+                          <td onClick={() => navigate(`/admin/users/${user._id}/tasks`)}>
                             <div className="d-flex align-items-center">
                               <div className="user-avatar me-2 rounded-circle d-flex align-items-center justify-content-center" style={{ backgroundColor: stringToColor(user.username), width: '40px', height: '40px', fontSize: '1.2rem' }}>
                                 {user.username.slice(0, 1).toUpperCase()}
@@ -736,53 +761,72 @@ const UserManagement = () => {
                               <i className="bi bi-calendar-date me-2 text-muted"></i>
                               {new Date(user.createdAt).toLocaleDateString()}
                             </div>
-                            <small className="text-primary">
-                              <i className="bi bi-list-task me-1"></i>
-                              Click to view assigned tasks
-                            </small>
+
                           </td>
+
+
+                          <td>
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleDeleteUser(user._id)}
+                            >
+                              <i className="bi bi-trash me-1"></i> Remove
+                            </button>
+                          </td>
+
                         </tr>
+
+
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {/* Pagination */}
                   {filteredUsers.length > usersPerPage && (
-                    <nav className="mt-4" aria-label="User pagination">
-                      <ul className="pagination pagination-md justify-content-center">
-                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                          <button 
-                            className="page-link shadow-sm border-primary" 
+                    <nav className="mt-3" aria-label="User pagination">
+                      <ul className="pagination justify-content-center">
+
+                        {/* Previous */}
+                        <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                          <button
+                            className="page-link"
                             onClick={() => paginate(currentPage - 1)}
                             disabled={currentPage === 1}
                           >
-                            <i className="bi bi-chevron-left"></i>
+                            ‹
                           </button>
                         </li>
-                        
+
+                        {/* Page Numbers */}
                         {Array.from({ length: Math.ceil(filteredUsers.length / usersPerPage) }).map((_, index) => (
-                          <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                            <button 
-                              className={`page-link shadow-sm ${currentPage === index + 1 ? 'bg-primary border-primary' : 'border-primary'}`}
+                          <li
+                            key={index}
+                            className={`page-item ${currentPage === index + 1 ? "active" : ""}`}
+                          >
+                            <button
+                              className="page-link"
                               onClick={() => paginate(index + 1)}
                             >
                               {index + 1}
                             </button>
                           </li>
                         ))}
-                        
-                        <li className={`page-item ${currentPage === Math.ceil(filteredUsers.length / usersPerPage) ? 'disabled' : ''}`}>
-                          <button 
-                            className="page-link shadow-sm border-primary" 
+
+                        {/* Next */}
+                        <li className={`page-item ${currentPage === Math.ceil(filteredUsers.length / usersPerPage) ? "disabled" : ""}`}>
+                          <button
+                            className="page-link"
                             onClick={() => paginate(currentPage + 1)}
                             disabled={currentPage === Math.ceil(filteredUsers.length / usersPerPage)}
                           >
-                            <i className="bi bi-chevron-right"></i>
+                            ›
                           </button>
                         </li>
+
                       </ul>
                     </nav>
                   )}
+
                 </div>
               )}
             </div>

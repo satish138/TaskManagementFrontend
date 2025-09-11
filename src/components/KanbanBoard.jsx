@@ -34,6 +34,18 @@ const KanbanBoard = () => {
   const [showImagePopup, setShowImagePopup] = useState(false);
   const [popupImageSrc, setPopupImageSrc] = useState('');
 
+  // Helper function to safely format dates
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString();
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
 
 
   useEffect(() => {
@@ -443,158 +455,220 @@ const KanbanBoard = () => {
 
       {/* View Task Modal */}
       {viewTask && (
-        <Modal style={{marginLeft:"130px"}} show={!!viewTask} onHide={() => {
+        <Modal 
+          show={!!viewTask} 
+          onHide={() => {
                   setViewTask(null);
                   setShowThumbnail(false);
                   setThumbnailSrc('');
                   setShowImagePopup(false);
                   setPopupImageSrc('');
-                }} centered size="lg">
-          <Modal.Header closeButton className="bg-primary text-white">
-            <Modal.Title>{viewTask.heading}</Modal.Title>
+                }} 
+          centered 
+          size="lg"
+          className="task-details-modal"
+          style={{marginLeft: "150px"}}
+        >
+          <Modal.Header closeButton className="task-modal-header border-0">
+            <Modal.Title className="task-modal-title">
+              <i className="fas fa-tasks me-2 text-primary"></i>
+              {viewTask.heading}
+            </Modal.Title>
           </Modal.Header>
 
-          <Modal.Body>
-            <div className="row">
-              {/* Left column: Details */}
-              <div className="col-md-8">
-                <div className="mb-3">
-                  <p><strong>Description:</strong></p>
-                  <div className="p-3 bg-light rounded">{viewTask.description || 'No description'}</div>
-                </div>
-
-                <div className="mb-2">
-                  <p><strong>Project:</strong> {viewTask.projectId?.title || 'None'}</p>
-                </div>
-
-                <div className="mb-2">
-                  <p><strong>Assigned To:</strong> {viewTask.assignedTo?.username || 'Unassigned'}</p>
-                </div>
-
-                <div className="mb-2">
-                  <p><strong>Created By:</strong> {viewTask.createdBy?.username}</p>
-                </div>
-
-                {/* File attachment display if present */}
-                {viewTask.file && (
-                  <div className="mb-2">
-                    <p><strong>Attachment:</strong> {viewTask.file.split('/').pop()}</p>
-                    {viewTask.file.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? (
-                      <div className="mb-2">
-                        <div className="mt-3 position-relative">
-                          <img 
-                            src={`http://localhost:5000/${viewTask.file}`} 
-                            alt="Attachment preview" 
-                            className="img-fluid rounded cursor-pointer" 
-                            style={{ maxWidth: '100%', maxHeight: '100px' }}
-                            onClick={() => {
-                              setShowImagePopup(true);
-                              setPopupImageSrc(`http://localhost:5000/${viewTask.file}`);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <a href={`http://localhost:5000/${viewTask.file}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                        <FaRegFilePdf size={30}/>
-                      </a>
-                    )}
+          <Modal.Body className="p-0">
+            <div className="task-details-container">
+              {/* Simplified Header */}
+              <div className="task-details-header">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div className={`status-badge status-${viewTask.status?.toLowerCase()}`}>
+                    {viewTask.status === 'TO_DO' ? '📋' : viewTask.status === 'IN_PROGRESS' ? '⚡' : '✅'}
+                    <span className="ms-2">{viewTask.status?.replace('_', ' ')}</span>
                   </div>
-                )}
-
-                {/* Inline Assign Section */}
-                {user?.role === 'admin' && viewTask.showAssign && (
-                  <Form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      try {
-                        // Create FormData for assignment update
-                        const formData = new FormData();
-                        formData.append('assignedTo', viewTask.tempAssignee || '');
-                        if (viewTask.projectId?._id) {
-                          formData.append('projectId', viewTask.projectId._id);
-                        } else if (viewTask.projectId) {
-                          formData.append('projectId', viewTask.projectId);
-                        }
-                        
-                        const response = await api.put(`/tasks/${viewTask._id}`, formData, {
-                          headers: {
-                            'Content-Type': 'multipart/form-data'
-                          }
-                        });
-                        
-                        if (response.data?.success) {
-                          const updated = response.data.data;
-                          setTasks((prev) =>
-                            prev.map((t) => (t._id === updated._id ? updated : t))
-                          );
-                          setViewTask(null);
-                        }
-                      } catch (err) {
-                        console.error('Error assigning task:', err);
-                      }
-                    }}
-                    className="d-flex align-items-center gap-2 mt-3"
-                  >
-                    <Form.Select
-                      value={viewTask.tempAssignee || ''}
-                      onChange={(e) =>
-                        setViewTask({ ...viewTask, tempAssignee: e.target.value })
-                      }
-                      className="flex-grow-1"
-                    >
-                      <option value="">Select User</option>
-                      {users.map((u) => (
-                        <option key={u._id} value={u._id}>
-                          {u.username}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Button type="submit" variant="success">
-                      Save
-                    </Button>
-                  </Form>
-                )}
+                  {viewTask.projectId?.title && (
+                    <div className="project-badge-simple">
+                      {viewTask.projectId.title}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Right column: Action buttons */}
-              <div className="col-md-4 d-flex flex-column gap-2">
-                <Button variant="secondary" onClick={() => {
-                  setViewTask(null);
-                  setShowThumbnail(false);
-                  setThumbnailSrc('');
-                }}>
-                  Close
-                </Button>
+              {/* Simplified Content */}
+              <div className="task-details-content">
+                {/* Main Content - Single Column */}
+                <div className="single-column-content">
+                  {/* Description */}
+                  <div className="simple-section mb-4">
+                    <h6 className="section-title">Description</h6>
+                    <div className="content-box">
+                      {viewTask.description || <span className="text-muted">No description provided</span>}
+                    </div>
+                  </div>
 
-                {user?.role === 'admin' && !viewTask.showAssign && (
-                  <>
-                    <Button
-                      variant="primary"
+                  {/* Team Info - Condensed */}
+                  <div className="simple-section mb-4">
+                    <h6 className="section-title">Team</h6>
+                    <div className="team-simple">
+                      <div className="team-row">
+                        <span className="role-label">Created by:</span>
+                        <span className="member-name">{viewTask.createdBy?.username}</span>
+                      </div>
+                      <div className="team-row">
+                        <span className="role-label">Assigned to:</span>
+                        <span className="member-name">{viewTask.assignedTo?.username || 'Unassigned'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attachment - Simplified */}
+                  {viewTask.file && (
+                    <div className="simple-section mb-4">
+                      <h6 className="section-title">Attachment</h6>
+                      <div className="attachment-simple">
+                        {viewTask.file.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? (
+                          <div className="image-preview" onClick={() => {
+                            setShowImagePopup(true);
+                            setPopupImageSrc(`http://localhost:5000/${viewTask.file}`);
+                          }}>
+                            <img 
+                              src={`http://localhost:5000/${viewTask.file}`} 
+                              alt="Preview" 
+                              className="preview-img"
+                            />
+                            <span className="preview-text">Click to view full size</span>
+                          </div>
+                        ) : (
+                          <div className="file-simple">
+                            <FaRegFilePdf className="file-icon" />
+                            <div>
+                              <div className="file-name">{viewTask.file.split('/').pop()}</div>
+                              <a href={`http://localhost:5000/${viewTask.file}`} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer" 
+                                 className="download-link">
+                                Download
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assignment Form - Simplified */}
+                  {user?.role === 'admin' && viewTask.showAssign && (
+                    <div className="simple-section mb-4">
+                      <h6 className="section-title">Assign Task</h6>
+                      <Form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            const formData = new FormData();
+                            formData.append('assignedTo', viewTask.tempAssignee || '');
+                            if (viewTask.projectId?._id) {
+                              formData.append('projectId', viewTask.projectId._id);
+                            } else if (viewTask.projectId) {
+                              formData.append('projectId', viewTask.projectId);
+                            }
+                            
+                            const response = await api.put(`/tasks/${viewTask._id}`, formData, {
+                              headers: {
+                                'Content-Type': 'multipart/form-data'
+                              }
+                            });
+                            
+                            if (response.data?.success) {
+                              const updated = response.data.data;
+                              setTasks((prev) =>
+                                prev.map((t) => (t._id === updated._id ? updated : t))
+                              );
+                              setViewTask(null);
+                            }
+                          } catch (err) {
+                            console.error('Error assigning task:', err);
+                          }
+                        }}
+                        className="assign-form-simple"
+                      >
+                        <div className="assignment-controls">
+                          <Form.Select
+                            value={viewTask.tempAssignee || ''}
+                            onChange={(e) =>
+                              setViewTask({ ...viewTask, tempAssignee: e.target.value })
+                            }
+                            className="assignment-select mb-2"
+                          >
+                            <option value="">Choose team member...</option>
+                            {users.map((u) => (
+                              <option key={u._id} value={u._id}>
+                                {u.username}
+                              </option>
+                            ))}
+                          </Form.Select>
+                          <Button type="submit" className="btn-assign">
+                            Assign
+                          </Button>
+                        </div>
+                      </Form>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="actions-section">
+                    {user?.role === 'admin' && !viewTask.showAssign && (
+                      <div className="admin-actions mb-3">
+                        <Button
+                          className="action-btn-simple edit me-2"
+                          onClick={() => {
+                            const taskToEdit = {
+                              ...viewTask,
+                              status: viewTask.status || 'TO_DO',
+                              projectId: viewTask.projectId?._id || viewTask.projectId
+                            };
+                            setEditTask(taskToEdit);
+                            setViewTask(null);
+                          }}
+                        >
+                          Edit Task
+                        </Button>
+
+                        <Button
+                          className="action-btn-simple assign"
+                          onClick={() => {
+                            setViewTask({ ...viewTask, showAssign: true });
+                          }}
+                        >
+                          {viewTask.assignedTo ? 'Reassign' : 'Assign'}
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      className="action-btn-simple close"
                       onClick={() => {
-                        // Ensure we include the status when editing
-                        const taskToEdit = {
-                          ...viewTask,
-                          status: viewTask.status || 'TO_DO', // Explicitly include status with fallback
-                          projectId: viewTask.projectId?._id || viewTask.projectId // Preserve project ID
-                        };
-                        setEditTask(taskToEdit);
                         setViewTask(null);
+                        setShowThumbnail(false);
+                        setThumbnailSrc('');
                       }}
                     >
-                      Edit Task
+                      Close
                     </Button>
 
-                    <Button
-                      variant="success"
-                      onClick={() => {
-                        setViewTask({ ...viewTask, showAssign: true });
-                      }}
-                    >
-                      Assign Task
-                    </Button>
-                  </>
-                )}
+                    {/* Simple Task Info */}
+                    <div className="task-info-simple mt-4">
+                      <div className="info-item">
+                        <span>Created:</span>
+                        <span>{formatDate(viewTask.createdAt)}</span>
+                      </div>
+                      {viewTask.updatedAt && viewTask.updatedAt !== viewTask.createdAt && (
+                        <div className="info-item">
+                          <span>Updated:</span>
+                          <span>{formatDate(viewTask.updatedAt)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </Modal.Body>

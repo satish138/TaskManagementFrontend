@@ -235,36 +235,38 @@ const KanbanBoard = () => {
   return (
     <div className="kanban">
       <header className="kanban-header">
-        <div className="header-content">
-          <div className="header-left">
-            <button onClick={() => navigate('/')} className="back-button">
-              <span className="back-icon">←</span>
-              Back to Dashboard
-            </button>
-            <div className="header-title">
-              <h1>Task Board</h1>
-              <div className="breadcrumb">
-                <span>Dashboard</span>
-                <span className="separator">›</span>
-                <span>Kanban</span>
-                {projectFilter && projects.length > 0 && (
-                  <>
-                    <span className="separator">›</span>
-                    <span className="current-project">
-                      {projects.find(p => p.id === projectFilter)?.title || 'Project'}
-                    </span>
-                  </>
-                )}
+        <div className="container">
+          <div className="header-content">
+            <div className="header-left">
+              <button onClick={() => navigate('/')} className="back-button">
+                <span className="back-icon">←</span>
+                Back to Dashboard
+              </button>
+              <div className="header-title">
+                <h1>Task Board</h1>
+                <div className="breadcrumb">
+                  <span>Dashboard</span>
+                  <span className="separator">›</span>
+                  <span>Kanban</span>
+                  {projectFilter && projects.length > 0 && (
+                    <>
+                      <span className="separator">›</span>
+                      <span className="current-project">
+                        {projects.find(p => p.id === projectFilter)?.title || 'Project'}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="user-info">
-            <div className="user-avatar">
-              {(user.username || 'U').slice(0, 1).toUpperCase()}
-            </div>
-            <div className="user-details">
-              <span className="user-welcome">{user.username}</span>
-              <span className="user-role">{user.role}</span>
+            <div className="user-info">
+              <div className="user-avatar">
+                {(user.username || 'U').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="user-details">
+                <span className="user-welcome">{user.username}</span>
+                <span className="user-role">{user.role}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -656,10 +658,10 @@ const KanbanBoard = () => {
 
                     {/* Simple Task Info */}
                     <div className="task-info-simple mt-4">
-                      <div className="info-item">
+                      {/* <div className="info-item">
                         <span>Created:</span>
                         <span>{formatDate(viewTask.createdAt)}</span>
-                      </div>
+                      </div> */}
                       {viewTask.updatedAt && viewTask.updatedAt !== viewTask.createdAt && (
                         <div className="info-item">
                           <span>Updated:</span>
